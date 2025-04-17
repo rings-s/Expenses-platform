@@ -6,9 +6,11 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import type { RegisterData } from '$lib/types/auth.types';
 
-	let userData: RegisterData = {
+	// State with runes
+	let userData = $state<RegisterData>({
 		email: '',
 		username: '',
 		password: '',
@@ -17,12 +19,18 @@
 		last_name: '',
 		phone_number: '',
 		user_type: 'regular'
-	};
+	});
 
-	let loading = false;
-	let errors: Record<string, string> = {};
+	let loading = $state(false);
+	let errors = $state<Record<string, string>>({});
 
 	const dispatch = createEventDispatcher();
+
+	// User type options - removed Administrator option
+	const userTypeOptions = [
+		{ value: 'regular', label: 'Regular User' },
+		{ value: 'manager', label: 'Manager' }
+	];
 
 	// Password validation regex patterns
 	const hasLowerCase = /[a-z]/;
@@ -102,7 +110,9 @@
 		return Object.keys(errors).length === 0;
 	}
 
-	async function handleSubmit() {
+	async function handleSubmit(e) {
+		e.preventDefault(); // Always prevent default form submission
+
 		if (!validateForm()) {
 			return;
 		}
@@ -111,16 +121,20 @@
 		authStore.clearError();
 
 		try {
-			const success = await authService.register(userData);
+			const result = await authService.register(userData);
 
-			if (success) {
+			if (result.success) {
 				dispatch('success');
 
 				// Store email in local storage for verification page
-				localStorage.setItem('verification_email', userData.email);
+				if (typeof localStorage !== 'undefined') {
+					localStorage.setItem('verification_email', userData.email);
+				}
 
-				// Redirect to verification page
-				goto('/auth/verify-email');
+				// Add null checks before navigating
+				if (typeof window !== 'undefined') {
+					goto('/auth/verify-email');
+				}
 			}
 		} catch (error) {
 			console.error('Error during registration:', error);
@@ -130,7 +144,7 @@
 	}
 </script>
 
-<form on:submit|preventDefault={handleSubmit} class="space-y-4">
+<form on:submit={handleSubmit} class="space-y-6">
 	<!-- Error Alert -->
 	{#if $authError}
 		<Alert type="error" dismissible={true} on:dismiss={() => authStore.clearError()}>
@@ -182,21 +196,29 @@
 		/>
 	</div>
 
-	<!-- Phone Number -->
-	<Input
-		type="tel"
-		label="Phone Number"
-		bind:value={userData.phone_number}
-		placeholder="+1234567890"
-		error={errors.phone_number}
-		disabled={loading}
-	/>
+	<!-- Phone Number and User Type Row -->
+	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<Input
+			type="tel"
+			label="Phone Number"
+			bind:value={userData.phone_number}
+			placeholder="+1234567890"
+			error={errors.phone_number}
+			disabled={loading}
+		/>
 
-	<!-- Hidden user_type field - always set to 'regular' for public registration -->
-	<input type="hidden" bind:value={userData.user_type} />
+		<Select
+			label="Account Type"
+			bind:value={userData.user_type}
+			options={userTypeOptions}
+			error={errors.user_type}
+			disabled={loading}
+			required
+		/>
+	</div>
 
 	<!-- Password Requirements Info -->
-	<div class="mb-4 text-sm text-gray-600">
+	<div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
 		<p>Your password must:</p>
 		<ul class="mt-1 list-disc pl-5">
 			<li>Be at least 8 characters long</li>
@@ -228,6 +250,34 @@
 		/>
 	</div>
 
+	<!-- User Type Explanation -->
+	<div class="rounded-md bg-blue-50 p-4 dark:bg-blue-900/30">
+		<div class="flex">
+			<div class="flex-shrink-0">
+				<svg
+					class="h-5 w-5 text-blue-400"
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+					aria-hidden="true"
+				>
+					<path
+						fill-rule="evenodd"
+						d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			</div>
+			<div class="ml-3 flex-1 md:flex md:justify-between">
+				<p class="text-sm text-blue-700 dark:text-blue-300">
+					<strong>Regular User:</strong> For personal expense tracking<br />
+					<strong>Manager:</strong> Can approve expenses and generate reports<br />
+					<strong>Administrator:</strong> Has full access to all platform features
+				</p>
+			</div>
+		</div>
+	</div>
+
 	<!-- Submit Button -->
 	<Button type="submit" variant="primary" fullWidth={true} {loading} disabled={loading}>
 		Create Account
@@ -235,7 +285,12 @@
 
 	<!-- Login Link -->
 	<div class="mt-4 text-center">
-		<span class="text-gray-600">Already have an account?</span>
-		<a href="/auth/login" class="text-primary hover:text-primary-dark ml-1"> Log in </a>
+		<span class="text-gray-600 dark:text-gray-400">Already have an account?</span>
+		<a
+			href="/auth/login"
+			class="text-primary hover:text-primary-dark dark:text-primary-400 dark:hover:text-primary-300 ml-1"
+		>
+			Log in
+		</a>
 	</div>
 </form>

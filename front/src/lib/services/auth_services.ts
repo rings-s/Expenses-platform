@@ -17,28 +17,40 @@ export const authService = {
 	/**
 	 * Log in with email and password
 	 */
-	async login(credentials: LoginCredentials): Promise<boolean> {
+	async login(
+		credentials: LoginCredentials
+	): Promise<{ success: boolean; needsVerification?: boolean }> {
 		authStore.clearError();
 
 		const response = await api.post<AuthResponse>('/accounts/login/', credentials);
 
 		if (response.error) {
+			// Check if this is an email verification error
+			if (
+				response.error.status === 400 &&
+				response.error.message.toLowerCase().includes('email not verified')
+			) {
+				return { success: false, needsVerification: true };
+			}
+
 			authStore.setError(response.error.message);
-			return false;
+			return { success: false };
 		}
 
 		if (response.data) {
 			authStore.setAuth(response.data.user, response.data.tokens);
-			return true;
+			return { success: true };
 		}
 
-		return false;
+		return { success: false };
 	},
 
 	/**
 	 * Register a new user
 	 */
-	async register(userData: RegisterData): Promise<boolean> {
+	async register(
+		userData: RegisterData
+	): Promise<{ success: boolean; requiresVerification?: boolean }> {
 		authStore.clearError();
 		const regData = { ...userData };
 
@@ -46,48 +58,97 @@ export const authService = {
 
 		if (response.error) {
 			authStore.setError(response.error.message);
-			return false;
+			return { success: false };
 		}
 
 		if (response.data) {
 			authStore.setAuth(response.data.user, response.data.tokens);
 
-			// If email verification is required, show a message
-			if (response.data.requires_verification) {
-				// Redirect to verification page
-				goto('/auth/verify-email');
-			}
+			// Check if email verification is required
+			const requiresVerification =
+				response.data.message?.includes('verification') || !response.data.user.email_verified;
 
-			return true;
+			return {
+				success: true,
+				requiresVerification: requiresVerification
+			};
 		}
 
-		return false;
+		return { success: false };
 	},
 
 	/**
 	 * Log out the current user
 	 */
-	async logout(redirectTo: string = '/auth/login'): Promise<void> {
+	async logout(redirectTo: string = '/auth/login'): Promise<boolean> {
 		let tokens = null;
 
+		// Get the current tokens from the store
 		const unsubscribe = authStore.subscribe((state) => {
 			tokens = state.tokens;
 		});
 		unsubscribe();
 
+		// Log what we're about to do
+		console.log('Attempting logout...');
+
 		if (tokens?.refresh) {
 			try {
-				await api.post('/accounts/logout/', { refresh: tokens.refresh });
+				// Log the payload we're sending
+				console.log(
+					'Sending logout request with refresh token:',
+					tokens.refresh.substring(0, 10) + '...'
+				);
+
+				// Make sure we're using the exact expected endpoint
+				const logoutEndpoint = '/accounts/logout/';
+				console.log('Using logout endpoint:', logoutEndpoint);
+
+				// Make the request with the proper content type
+				const response = await api.post(
+					logoutEndpoint,
+					{
+						refresh: tokens.refresh
+					},
+					{
+						headers: {
+							'Content-Type': 'application/json'
+						}
+					}
+				);
+
+				// Log the response for debugging
+				console.log('Logout response:', response);
+
+				// Check if the request was successful
+				if (response.error) {
+					console.error('Logout request failed:', response.error);
+				} else {
+					console.log('Logout request successful');
+				}
 			} catch (error) {
 				console.error('Error during logout:', error);
 			}
+		} else {
+			console.log('No refresh token available for logout');
 		}
 
+		// Always clear local state regardless of backend response
 		authStore.logout();
+		console.log('Local auth state cleared');
 
-		if (redirectTo) {
-			goto(redirectTo);
+		// Handle redirection if requested
+		if (redirectTo && typeof window !== 'undefined') {
+			console.log('Redirecting to:', redirectTo);
+			if (typeof goto === 'function') {
+				goto(redirectTo);
+			} else {
+				// Fallback if goto is unavailable
+				window.location.href = redirectTo;
+			}
 		}
+
+		return true; // Return success even if backend fails, as we've cleared local state
 	},
 
 	/**
@@ -164,25 +225,31 @@ export const authService = {
 	},
 
 	/**
-	 * Request password reset
+	 * Request password reset - sends a 6-digit code via email
 	 */
 	async requestPasswordReset(email: string): Promise<boolean> {
+		console.log('Requesting password reset for:', email);
+
 		const response = await api.post<{ detail: string }>('/accounts/request-password-reset/', {
 			email
 		});
 
 		if (response.error) {
+			console.error('Password reset request failed:', response.error);
 			authStore.setError(response.error.message);
 			return false;
 		}
 
+		console.log('Password reset request successful:', response.data);
 		return true;
 	},
 
 	/**
-	 * Reset password with code
+	 * Reset password with code and new password
 	 */
 	async resetPassword(data: ResetPasswordData): Promise<boolean> {
+		console.log('Resetting password with token:', data.token);
+
 		const resetData = {
 			token: data.token,
 			new_password: data.password
@@ -199,9 +266,12 @@ export const authService = {
 		}>('/accounts/reset-password/', resetData);
 
 		if (response.error) {
+			console.error('Password reset failed:', response.error);
 			authStore.setError(response.error.message);
 			return false;
 		}
+
+		console.log('Password reset successful:', response.data);
 
 		// If we get back user and tokens, update auth store to log the user in
 		if (response.data?.user && response.data?.tokens) {
@@ -257,7 +327,7 @@ export const authService = {
 			}
 
 			if (response.data) {
-				authStore._update((state) => {
+				authStore.update((state) => {
 					return {
 						...state,
 						tokens: {

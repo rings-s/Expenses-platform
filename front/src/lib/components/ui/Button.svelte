@@ -22,7 +22,7 @@
 	};
 
 	$: classes = [
-		'bg-black rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary',
+		'bg-gray-900 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary',
 		variantClasses[variant],
 		sizeClasses[size],
 		fullWidth ? 'w-full' : '',

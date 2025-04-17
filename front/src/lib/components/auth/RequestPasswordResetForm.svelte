@@ -2,14 +2,15 @@
 	import { createEventDispatcher } from 'svelte';
 	import { authService } from '$lib/services/auth_services';
 	import { authStore, authError } from '$lib/stores/auth';
+	import { goto } from '$app/navigation';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
 
-	let email = '';
-	let loading = false;
-	let success = false;
-	let errors: Record<string, string> = {};
+	let email = $state('');
+	let loading = $state(false);
+	let success = $state(false);
+	let errors = $state<Record<string, string>>({});
 
 	const dispatch = createEventDispatcher();
 
@@ -37,6 +38,17 @@
 
 			if (result) {
 				success = true;
+
+				// Store email for the verification page
+				if (typeof localStorage !== 'undefined') {
+					localStorage.setItem('reset_password_email', email);
+				}
+
+				// Redirect to the verification page after a short delay
+				setTimeout(() => {
+					goto('/auth/reset-email-password');
+				}, 1500);
+
 				dispatch('success', { email });
 			}
 		} finally {
@@ -50,8 +62,8 @@
 		<Alert type="success">
 			<h3 class="text-lg font-medium">Check your email</h3>
 			<p>
-				We've sent a password reset link to <strong>{email}</strong>. Click the link in the email to
-				reset your password.
+				We've sent a password reset code to <strong>{email}</strong>. You'll be redirected to enter
+				this code to complete the password reset process.
 			</p>
 		</Alert>
 	{:else}
@@ -63,8 +75,8 @@
 		{/if}
 
 		<div>
-			<p class="mb-4 text-gray-600">
-				Enter your email address and we'll send you a link to reset your password.
+			<p class="mb-4 text-gray-600 dark:text-gray-400">
+				Enter your email address and we'll send you a code to reset your password.
 			</p>
 
 			<Input
@@ -79,11 +91,16 @@
 		</div>
 
 		<Button type="submit" variant="primary" fullWidth={true} {loading} disabled={loading}>
-			Send Reset Link
+			Send Reset Code
 		</Button>
 	{/if}
 
 	<div class="mt-4 text-center">
-		<a href="/auth/login" class="text-primary hover:text-primary-dark text-sm"> Back to login </a>
+		<a
+			href="/auth/login"
+			class="text-primary hover:text-primary-dark dark:text-primary-400 dark:hover:text-primary-300 text-sm"
+		>
+			Back to login
+		</a>
 	</div>
 </form>

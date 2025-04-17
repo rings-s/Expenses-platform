@@ -91,6 +91,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             models.Index(fields=['user_type']),
             models.Index(fields=['is_active']),
         ]
+    def save(self, *args, **kwargs):
+           # If you have a save method, ensure it's not forcing user_type = 'regular'
+           super().save(*args, **kwargs)
 
 
 class EmailVerificationToken(models.Model):
