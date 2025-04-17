@@ -52,7 +52,7 @@ INSTALLED_APPS = [
 
     # Project apps
     'accounts',
-    'expenses',
+    'expenses',  # Add the new expenses app
 ]
 
 MIDDLEWARE = [
@@ -67,8 +67,6 @@ MIDDLEWARE = [
 
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'accounts.middleware.JWTAuthenticationMiddleware',  # Your custom JWT middleware comes after
-
 ]
 
 ROOT_URLCONF = 'back.urls'
@@ -189,6 +187,11 @@ REQUIRE_EMAIL_VERIFICATION = os.environ.get('REQUIRE_EMAIL_VERIFICATION', 'True'
 # CORS settings
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:5173').split(',')
 CORS_ALLOW_CREDENTIALS = True
+
+# Matplotlib configuration
+# Use Agg backend for headless server environments
+import matplotlib
+matplotlib.use('Agg')
 
 
 # Internationalization
