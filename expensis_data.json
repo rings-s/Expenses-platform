@@ -1,0 +1,238 @@
+[
+  {
+    "model": "expenses.category",
+    "pk": "45a2e8a2-d8e6-4b3d-a8d6-2e2a25f5b5f8",
+    "fields": {
+      "name": "Food & Dining",
+      "description": "Expenses related to food, restaurants, and dining",
+      "color": "#3A86FF",
+      "icon": "utensils",
+      "user": 1,
+      "is_default": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.category",
+    "pk": "85c8d5c7-fe4f-4a84-afb0-9f298c5e575b",
+    "fields": {
+      "name": "Transportation",
+      "description": "Expenses related to transportation and travel",
+      "color": "#FF006E",
+      "icon": "car",
+      "user": 1,
+      "is_default": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.category",
+    "pk": "a4d96ce7-81f9-48d0-a27e-6c12a5c7f8e9",
+    "fields": {
+      "name": "Housing",
+      "description": "Expenses related to housing and utilities",
+      "color": "#FB5607",
+      "icon": "home",
+      "user": 1,
+      "is_default": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.category",
+    "pk": "b3e7d8a9-f2c1-4e5d-9a8b-7c6d5e4f3a2b",
+    "fields": {
+      "name": "Entertainment",
+      "description": "Expenses related to entertainment and leisure",
+      "color": "#FFBE0B",
+      "icon": "film",
+      "user": 1,
+      "is_default": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.category",
+    "pk": "c2d1e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f",
+    "fields": {
+      "name": "Healthcare",
+      "description": "Expenses related to healthcare and medical",
+      "color": "#8338EC",
+      "icon": "medical",
+      "user": 1,
+      "is_default": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.expense",
+    "pk": "f1e2d3c4-b5a6-9876-5432-1a2b3c4d5e6f",
+    "fields": {
+      "amount": "42.50",
+      "currency": "USD",
+      "description": "Dinner at Italian Restaurant",
+      "date": "2025-04-01",
+      "user": 1,
+      "category": "45a2e8a2-d8e6-4b3d-a8d6-2e2a25f5b5f8",
+      "payment_method": "credit_card",
+      "location": "Downtown",
+      "notes": "Business dinner with clients",
+      "is_recurring": false,
+      "created_at": "2025-04-01T19:30:00Z",
+      "updated_at": "2025-04-01T19:30:00Z"
+    }
+  },
+  {
+    "model": "expenses.expense",
+    "pk": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
+    "fields": {
+      "amount": "35.00",
+      "currency": "USD",
+      "description": "Uber ride",
+      "date": "2025-04-02",
+      "user": 1,
+      "category": "85c8d5c7-fe4f-4a84-afb0-9f298c5e575b",
+      "payment_method": "credit_card",
+      "location": "Airport to Home",
+      "notes": "Return from business trip",
+      "is_recurring": false,
+      "created_at": "2025-04-02T22:15:00Z",
+      "updated_at": "2025-04-02T22:15:00Z"
+    }
+  },
+  {
+    "model": "expenses.expense",
+    "pk": "b2c3d4e5-f6a7-8901-2345-6789abcdef01",
+    "fields": {
+      "amount": "1200.00",
+      "currency": "USD",
+      "description": "Monthly rent",
+      "date": "2025-04-01",
+      "user": 1,
+      "category": "a4d96ce7-81f9-48d0-a27e-6c12a5c7f8e9",
+      "payment_method": "bank_transfer",
+      "location": "Home",
+      "notes": "Rent for April",
+      "is_recurring": true,
+      "created_at": "2025-04-01T09:00:00Z",
+      "updated_at": "2025-04-01T09:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.expense",
+    "pk": "c3d4e5f6-a7b8-9012-3456-789abcdef012",
+    "fields": {
+      "amount": "15.50",
+      "currency": "USD",
+      "description": "Movie tickets",
+      "date": "2025-04-03",
+      "user": 1,
+      "category": "b3e7d8a9-f2c1-4e5d-9a8b-7c6d5e4f3a2b",
+      "payment_method": "debit_card",
+      "location": "Cinema",
+      "notes": "Weekend movie",
+      "is_recurring": false,
+      "created_at": "2025-04-03T18:45:00Z",
+      "updated_at": "2025-04-03T18:45:00Z"
+    }
+  },
+  {
+    "model": "expenses.expense",
+    "pk": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
+    "fields": {
+      "amount": "75.00",
+      "currency": "USD",
+      "description": "Doctor visit",
+      "date": "2025-04-05",
+      "user": 1,
+      "category": "c2d1e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f",
+      "payment_method": "credit_card",
+      "location": "Medical Center",
+      "notes": "Annual checkup",
+      "is_recurring": false,
+      "created_at": "2025-04-05T10:30:00Z",
+      "updated_at": "2025-04-05T10:30:00Z"
+    }
+  },
+  {
+    "model": "expenses.budget",
+    "pk": "e5f6a7b8-c9d0-1234-5678-9abcdef01234",
+    "fields": {
+      "amount": "500.00",
+      "currency": "USD",
+      "period": "monthly",
+      "start_date": "2025-04-01",
+      "user": 1,
+      "category": "45a2e8a2-d8e6-4b3d-a8d6-2e2a25f5b5f8",
+      "created_at": "2025-04-01T00:00:00Z",
+      "updated_at": "2025-04-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.budget",
+    "pk": "f6a7b8c9-d0e1-2345-6789-abcdef012345",
+    "fields": {
+      "amount": "200.00",
+      "currency": "USD",
+      "period": "monthly",
+      "start_date": "2025-04-01",
+      "user": 1,
+      "category": "85c8d5c7-fe4f-4a84-afb0-9f298c5e575b",
+      "created_at": "2025-04-01T00:00:00Z",
+      "updated_at": "2025-04-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.budget",
+    "pk": "a7b8c9d0-e1f2-3456-7890-abcdef123456",
+    "fields": {
+      "amount": "1500.00",
+      "currency": "USD",
+      "period": "monthly",
+      "start_date": "2025-04-01",
+      "user": 1,
+      "category": "a4d96ce7-81f9-48d0-a27e-6c12a5c7f8e9",
+      "created_at": "2025-04-01T00:00:00Z",
+      "updated_at": "2025-04-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.report",
+    "pk": "b8c9d0e1-f2a3-4567-8901-abcdef234567",
+    "fields": {
+      "name": "Monthly Expense Summary",
+      "description": "Overview of expenses by category for the current month",
+      "report_type": "expenses_by_category",
+      "chart_type": "pie",
+      "start_date": "2025-04-01",
+      "end_date": "2025-04-30",
+      "parameters": { "currency": "USD" },
+      "user": 1,
+      "is_favorite": true,
+      "created_at": "2025-04-01T00:00:00Z",
+      "updated_at": "2025-04-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "expenses.report",
+    "pk": "c9d0e1f2-a3b4-5678-9012-abcdef345678",
+    "fields": {
+      "name": "Spending Trends",
+      "description": "Analysis of spending trends over time",
+      "report_type": "expenses_over_time",
+      "chart_type": "line",
+      "start_date": "2025-01-01",
+      "end_date": "2025-12-31",
+      "parameters": { "currency": "USD", "group_by": "month" },
+      "user": 1,
+      "is_favorite": false,
+      "created_at": "2025-04-01T00:00:00Z",
+      "updated_at": "2025-04-01T00:00:00Z"
+    }
+  }
+]
