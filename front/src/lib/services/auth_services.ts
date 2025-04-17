@@ -1,3 +1,10 @@
+/**
+ * Authentication Service
+ *
+ * Comprehensive service for handling all authentication-related operations.
+ * This service acts as a bridge between the UI components and the authentication API.
+ */
+
 import { api } from './api';
 import { authStore } from '$lib/stores/auth';
 import { goto } from '$app/navigation';
@@ -7,19 +14,40 @@ import type {
 	RegisterData,
 	ResetPasswordData,
 	ProfileUpdateData,
-	User
+	User,
+	EmailVerificationData
 } from '$lib/types/auth.types';
 
 /**
+ * Result of login attempt
+ */
+interface LoginResult {
+	success: boolean;
+	needsVerification?: boolean;
+	user?: User;
+	redirectUrl?: string;
+}
+
+/**
+ * Result of registration attempt
+ */
+interface RegisterResult {
+	success: boolean;
+	requiresVerification?: boolean;
+	user?: User;
+}
+
+/**
  * Authentication Service
+ * Handles all authentication-related operations
  */
 export const authService = {
 	/**
 	 * Log in with email and password
+	 * @param credentials User credentials (email, password)
+	 * @returns Promise with login result
 	 */
-	async login(
-		credentials: LoginCredentials
-	): Promise<{ success: boolean; needsVerification?: boolean }> {
+	async login(credentials: LoginCredentials): Promise<LoginResult> {
 		authStore.clearError();
 
 		const response = await api.post<AuthResponse>('/accounts/login/', credentials);
@@ -39,7 +67,11 @@ export const authService = {
 
 		if (response.data) {
 			authStore.setAuth(response.data.user, response.data.tokens);
-			return { success: true };
+			return {
+				success: true,
+				user: response.data.user,
+				redirectUrl: response.data.user.email_verified ? '/dashboard' : '/auth/verify-email'
+			};
 		}
 
 		return { success: false };
@@ -47,10 +79,10 @@ export const authService = {
 
 	/**
 	 * Register a new user
+	 * @param userData Registration data
+	 * @returns Promise with registration result
 	 */
-	async register(
-		userData: RegisterData
-	): Promise<{ success: boolean; requiresVerification?: boolean }> {
+	async register(userData: RegisterData): Promise<RegisterResult> {
 		authStore.clearError();
 		const regData = { ...userData };
 
@@ -70,7 +102,8 @@ export const authService = {
 
 			return {
 				success: true,
-				requiresVerification: requiresVerification
+				requiresVerification,
+				user: response.data.user
 			};
 		}
 
@@ -79,86 +112,65 @@ export const authService = {
 
 	/**
 	 * Log out the current user
+	 * @param redirectTo URL to redirect to after logout (default: /auth/login)
+	 * @returns Promise resolving to logout success
 	 */
 	async logout(redirectTo: string = '/auth/login'): Promise<boolean> {
-		let tokens = null;
-
-		// Get the current tokens from the store
-		const unsubscribe = authStore.subscribe((state) => {
-			tokens = state.tokens;
-		});
-		unsubscribe();
+		// Get current auth state
+		const { tokens } = authStore._update((state) => state);
 
 		// Log what we're about to do
-		console.log('Attempting logout...');
+		console.info('Logging out user...');
 
 		if (tokens?.refresh) {
 			try {
-				// Log the payload we're sending
-				console.log(
-					'Sending logout request with refresh token:',
-					tokens.refresh.substring(0, 10) + '...'
-				);
-
-				// Make sure we're using the exact expected endpoint
-				const logoutEndpoint = '/accounts/logout/';
-				console.log('Using logout endpoint:', logoutEndpoint);
-
-				// Make the request with the proper content type
+				// Send logout request to invalidate token on server
 				const response = await api.post(
-					logoutEndpoint,
+					'/accounts/logout/',
+					{ refresh: tokens.refresh },
 					{
-						refresh: tokens.refresh
-					},
-					{
-						headers: {
-							'Content-Type': 'application/json'
-						}
+						// Don't retry on 401 since we're already logging out
+						retryOnUnauthorized: false,
+						// Suppress error logs for cleaner UX
+						suppressErrors: true
 					}
 				);
 
-				// Log the response for debugging
-				console.log('Logout response:', response);
-
-				// Check if the request was successful
+				// Log result but continue regardless
 				if (response.error) {
-					console.error('Logout request failed:', response.error);
+					console.error('Server logout request failed:', response.error);
 				} else {
-					console.log('Logout request successful');
+					console.info('Server logout successful');
 				}
 			} catch (error) {
-				console.error('Error during logout:', error);
+				// Continue with local logout even if server request fails
+				console.error('Error during server logout:', error);
 			}
-		} else {
-			console.log('No refresh token available for logout');
 		}
 
 		// Always clear local state regardless of backend response
 		authStore.logout();
-		console.log('Local auth state cleared');
+		console.info('Local auth state cleared');
 
 		// Handle redirection if requested
-		if (redirectTo && typeof window !== 'undefined') {
-			console.log('Redirecting to:', redirectTo);
-			if (typeof goto === 'function') {
-				goto(redirectTo);
-			} else {
-				// Fallback if goto is unavailable
-				window.location.href = redirectTo;
-			}
+		if (redirectTo && typeof goto === 'function') {
+			console.info('Redirecting to:', redirectTo);
+			goto(redirectTo);
 		}
 
-		return true; // Return success even if backend fails, as we've cleared local state
+		return true;
 	},
 
 	/**
 	 * Get the current user's profile
+	 * @returns Promise resolving to user object or null
 	 */
 	async getUserProfile(): Promise<User | null> {
 		const response = await api.get<User>('/accounts/profile/');
 
 		if (response.error) {
 			if (response.error.status === 401) {
+				// If unauthorized, clear auth state
 				authStore.logout();
 			} else {
 				authStore.setError(response.error.message);
@@ -167,6 +179,7 @@ export const authService = {
 		}
 
 		if (response.data) {
+			// Update user in auth store
 			authStore.updateUser(response.data);
 			return response.data;
 		}
@@ -176,8 +189,11 @@ export const authService = {
 
 	/**
 	 * Update the user's profile
+	 * @param profileData Data to update
+	 * @returns Promise resolving to update success
 	 */
 	async updateProfile(profileData: ProfileUpdateData): Promise<boolean> {
+		// Filter out null/undefined values to prevent overwriting with nulls
 		const cleanedData = Object.fromEntries(
 			Object.entries(profileData).filter(([_, v]) => v !== null && v !== undefined)
 		);
@@ -190,7 +206,17 @@ export const authService = {
 		}
 
 		if (response.data) {
+			// Update user in auth store
 			authStore.updateUser(response.data);
+
+			// Show success message
+			authStore.setMessage('Profile updated successfully');
+
+			// Clear success message after 3 seconds
+			setTimeout(() => {
+				authStore.clearMessage();
+			}, 3000);
+
 			return true;
 		}
 
@@ -198,9 +224,13 @@ export const authService = {
 	},
 
 	/**
-	 * Verify email with 6-digit code
+	 * Verify email with verification code
+	 * @param code Verification code
+	 * @returns Promise resolving to verification success
 	 */
 	async verifyEmail(code: string): Promise<boolean> {
+		const verificationData: EmailVerificationData = { token: code };
+
 		const response = await api.post<{
 			detail: string;
 			user?: User;
@@ -209,7 +239,7 @@ export const authService = {
 				refresh: string;
 				expires_in: number;
 			};
-		}>('/accounts/verify-email/', { token: code });
+		}>('/accounts/verify-email/', verificationData);
 
 		if (response.error) {
 			authStore.setError(response.error.message);
@@ -219,16 +249,35 @@ export const authService = {
 		// If we get back updated user and tokens, update auth store
 		if (response.data?.user && response.data?.tokens) {
 			authStore.setAuth(response.data.user, response.data.tokens);
+		} else if (response.data?.detail) {
+			// If we only get a success message, update the user's email_verified status
+			authStore.update((state) => {
+				if (state.user) {
+					return {
+						...state,
+						user: {
+							...state.user,
+							email_verified: true
+						}
+					};
+				}
+				return state;
+			});
+
+			// Show success message
+			authStore.setMessage('Email verified successfully');
 		}
 
 		return true;
 	},
 
 	/**
-	 * Request password reset - sends a 6-digit code via email
+	 * Request password reset - sends a verification code via email
+	 * @param email User's email address
+	 * @returns Promise resolving to request success
 	 */
 	async requestPasswordReset(email: string): Promise<boolean> {
-		console.log('Requesting password reset for:', email);
+		console.info('Requesting password reset for:', email);
 
 		const response = await api.post<{ detail: string }>('/accounts/request-password-reset/', {
 			email
@@ -240,15 +289,21 @@ export const authService = {
 			return false;
 		}
 
-		console.log('Password reset request successful:', response.data);
+		console.info('Password reset request successful:', response.data);
+
+		// Show success message
+		authStore.setMessage('Password reset instructions sent to your email');
+
 		return true;
 	},
 
 	/**
 	 * Reset password with code and new password
+	 * @param data Reset password data
+	 * @returns Promise resolving to reset success
 	 */
 	async resetPassword(data: ResetPasswordData): Promise<boolean> {
-		console.log('Resetting password with token:', data.token);
+		console.info('Resetting password with verification code');
 
 		const resetData = {
 			token: data.token,
@@ -271,18 +326,23 @@ export const authService = {
 			return false;
 		}
 
-		console.log('Password reset successful:', response.data);
+		console.info('Password reset successful');
 
 		// If we get back user and tokens, update auth store to log the user in
 		if (response.data?.user && response.data?.tokens) {
 			authStore.setAuth(response.data.user, response.data.tokens);
 		}
 
+		// Show success message
+		authStore.setMessage('Password has been reset successfully');
+
 		return true;
 	},
 
 	/**
 	 * Request email verification code
+	 * @param email User's email address
+	 * @returns Promise resolving to request success
 	 */
 	async requestVerificationEmail(email: string): Promise<boolean> {
 		const response = await api.post<{ detail: string }>('/accounts/request-verification/', {
@@ -294,56 +354,37 @@ export const authService = {
 			return false;
 		}
 
+		// Show success message
+		authStore.setMessage('Verification email sent successfully');
+
 		return true;
 	},
 
 	/**
 	 * Check if user is authenticated
+	 * @returns Boolean indicating authentication status
 	 */
 	isAuthenticated(): boolean {
-		let isAuth = false;
-		const unsubscribe = authStore.subscribe((state) => {
-			isAuth = state.isAuthenticated;
-		});
-		unsubscribe();
-		return isAuth;
+		const { isAuthenticated } = authStore._update((state) => state);
+		return isAuthenticated;
 	},
 
 	/**
-	 * Refresh authentication token
+	 * Get current user
+	 * @returns Current user or null if not authenticated
 	 */
-	async refreshToken(refreshToken: string): Promise<boolean> {
-		try {
-			const response = await api.post<{ access: string; refresh?: string }>(
-				'/accounts/token/refresh/',
-				{
-					refresh: refreshToken
-				}
-			);
+	getCurrentUser(): User | null {
+		const { user } = authStore._update((state) => state);
+		return user;
+	},
 
-			if (response.error) {
-				console.error('Token refresh failed:', response.error);
-				return false;
-			}
-
-			if (response.data) {
-				authStore.update((state) => {
-					return {
-						...state,
-						tokens: {
-							...state.tokens,
-							access: response.data.access,
-							...(response.data.refresh && { refresh: response.data.refresh })
-						}
-					};
-				});
-				return true;
-			}
-
-			return false;
-		} catch (error) {
-			console.error('Token refresh error:', error);
-			return false;
-		}
+	/**
+	 * Check if user has specific role
+	 * @param role Role to check
+	 * @returns Boolean indicating if user has role
+	 */
+	hasRole(role: string): boolean {
+		const { user } = authStore._update((state) => state);
+		return user?.user_type === role;
 	}
 };
