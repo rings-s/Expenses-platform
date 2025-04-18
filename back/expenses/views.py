@@ -19,6 +19,7 @@ from .serializers import (
     TimeSeriesDataSerializer
 )
 from .permissions import (
+    IsResourceOwner,  # Updated from IsOwner
     IsExpenseOwner,
     IsCategoryOwner,
     IsBudgetOwner,
@@ -532,3 +533,36 @@ class ChartExportView(APIView):
         response._closable_objects.append(open(chart_file, 'rb'))
 
         return response
+
+
+
+class ExpenseHeatmapView(APIView):
+    """
+    Generate a calendar heatmap of expenses
+    """
+    permission_classes = [IsAuthenticated, EmailVerified, IsExpenseAnalytics]
+
+    def get(self, request):
+        # Get year parameter (default to current year)
+        year = int(request.query_params.get('year', timezone.now().year))
+
+        # Get all expenses for the user in that year
+        start_date = timezone.datetime(year, 1, 1).date()
+        end_date = timezone.datetime(year, 12, 31).date()
+
+        expenses = Expense.objects.filter(
+            user=request.user,
+            date__gte=start_date,
+            date__lte=end_date
+        ).values('date', 'amount')
+
+        # Generate heatmap
+        heatmap = generate_expense_heatmap(
+            expense_data=list(expenses),
+            year=year,
+            title=f'Expense Calendar for {year}'
+        )
+
+        return Response({
+            'chart': heatmap
+        })

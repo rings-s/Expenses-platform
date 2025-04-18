@@ -20,6 +20,22 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         # Check if passwords match
         if data.get('password') != data.get('password_confirm'):
             raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+
+        # Add password strength validation
+        password = data.get('password')
+
+        # Check password length
+        if len(password) < 8:
+            raise serializers.ValidationError({"password": "Password must be at least 8 characters long."})
+
+        # Check for mixed case
+        if password.lower() == password or password.upper() == password:
+            raise serializers.ValidationError({"password": "Password must contain both uppercase and lowercase letters."})
+
+        # Check for numbers
+        if not any(char.isdigit() for char in password):
+            raise serializers.ValidationError({"password": "Password must contain at least one number."})
+
         return data
 
     def create(self, validated_data):

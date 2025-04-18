@@ -135,20 +135,36 @@ class Budget(models.Model):
         """Calculate total amount spent for this budget period"""
         from django.db.models import Sum
         from django.utils.timezone import now
+        import calendar
+        from datetime import datetime
 
         # Get start and end dates based on period
         start_date = self.start_date
+
         if self.period == 'daily':
             end_date = start_date
         elif self.period == 'weekly':
-            end_date = start_date + timezone.timedelta(days=7)
+            end_date = start_date + timezone.timedelta(days=6)  # 7 days total including start
         elif self.period == 'monthly':
-            # Simple 30 day approximation for demo purposes
-            end_date = start_date + timezone.timedelta(days=30)
+            # Calculate correct last day of month
+            year = start_date.year
+            month = start_date.month
+
+            # Get last day of month
+            _, last_day = calendar.monthrange(year, month)
+            end_date = datetime(year, month, last_day).date()
         elif self.period == 'quarterly':
-            end_date = start_date + timezone.timedelta(days=90)
+            # Calculate end of quarter
+            month = start_date.month
+            quarter_end_month = ((month - 1) // 3) * 3 + 3  # Last month of quarter
+            year = start_date.year
+            if quarter_end_month > 12:
+                quarter_end_month = 12
+
+            _, last_day = calendar.monthrange(year, quarter_end_month)
+            end_date = datetime(year, quarter_end_month, last_day).date()
         elif self.period == 'yearly':
-            end_date = start_date + timezone.timedelta(days=365)
+            end_date = datetime(start_date.year, 12, 31).date()
 
         # If category is specified, filter by it
         if self.category:

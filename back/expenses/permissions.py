@@ -1,7 +1,7 @@
 from rest_framework import permissions
 
 
-class IsOwner(permissions.BasePermission):
+class IsResourceOwner(permissions.BasePermission):
     """
     Object-level permission to allow users to access only their own resources.
     Expects the model instance to have a `user` attribute.

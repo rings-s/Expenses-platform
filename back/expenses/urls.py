@@ -13,7 +13,8 @@ from .views import (
     ExpensesTimeSeriesView,
     BudgetComparisonView,
     ExpenseExportView,
-    ChartExportView
+    ChartExportView,
+    ExpenseHeatmapView  # Added new view
 )
 
 app_name = 'expenses'
@@ -40,6 +41,7 @@ urlpatterns = [
     path('analytics/by-category/', ExpensesByCategoryView.as_view(), name='expenses-by-category'),
     path('analytics/time-series/', ExpensesTimeSeriesView.as_view(), name='expenses-time-series'),
     path('analytics/budget-comparison/', BudgetComparisonView.as_view(), name='budget-comparison'),
+    path('analytics/heatmap/', ExpenseHeatmapView.as_view(), name='expense-heatmap'),  # Added new endpoint
 
     # Export endpoints
     path('export/csv/', ExpenseExportView.as_view(), name='export-csv'),
