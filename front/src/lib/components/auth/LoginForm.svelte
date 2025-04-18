@@ -5,7 +5,6 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
-	import { goto } from '$app/navigation';
 	import type { LoginCredentials } from '$lib/types/auth.types';
 
 	// Props with Svelte 5 runes
@@ -24,11 +23,25 @@
 
 	const dispatch = createEventDispatcher();
 
+	// Clear errors when input values change
+	$effect(() => {
+		if (credentials.email && errors.email) {
+			errors.email = '';
+		}
+	});
+
+	$effect(() => {
+		if (credentials.password && errors.password) {
+			errors.password = '';
+		}
+	});
+
 	async function handleSubmit() {
 		// Reset errors and states
 		errors = {};
 		verificationNeeded = false;
 		unverifiedEmail = '';
+		authStore.clearError();
 
 		// Validate
 		if (!credentials.email) {
@@ -66,11 +79,13 @@
 				dispatch('success');
 
 				// Navigate to redirect URL if provided, otherwise to dashboard
-				if (redirect) {
-					goto(redirect);
-				} else {
-					goto('/dashboard');
-				}
+				setTimeout(() => {
+					if (redirect) {
+						window.location.href = redirect;
+					} else {
+						window.location.href = '/dashboard';
+					}
+				}, 300);
 			}
 		} catch (error) {
 			// Error is already handled by the auth service
@@ -81,7 +96,7 @@
 	}
 
 	function goToVerification() {
-		goto('/auth/verify-email');
+		window.location.href = '/auth/verify-email';
 	}
 </script>
 
@@ -134,7 +149,7 @@
 		/>
 
 		<div class="mt-2 text-right">
-			<a
+		    <a
 				href="/auth/request-password-reset"
 				class="text-primary hover:text-primary-dark dark:text-primary-400 dark:hover:text-primary-300 text-sm"
 			>
@@ -159,5 +174,3 @@
 		</a>
 	</div>
 </form>
-
-<!-- login form component with email verification Check before logging in -->

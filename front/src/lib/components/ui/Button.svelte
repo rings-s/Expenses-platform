@@ -1,210 +1,182 @@
-<!--
-  Button Component
-
-  A highly customizable button component with support for:
-  - Multiple variants (primary, secondary, danger, success, warning, info, ghost)
-  - Multiple sizes (xs, sm, md, lg, xl)
-  - Loading states with animated spinner
-  - Disabled states
-  - Link functionality (with href)
-  - Icons (leading and trailing)
-  - Full width option
-  - Subtle animations and transitions
-  - High contrast for accessibility
--->
 <script lang="ts">
-	// Props with Svelte 5 runes
+	import { createEventDispatcher } from 'svelte';
+	import { goto } from '$app/navigation';
+
+	// Simple type definitions
+	type ButtonVariant =
+		| 'primary'
+		| 'secondary'
+		| 'success'
+		| 'danger'
+		| 'warning'
+		| 'outline'
+		| 'link';
+	type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
+	type ButtonType = 'button' | 'submit' | 'reset';
+
+	// Props using Svelte 5 runes
 	const {
-		// Button properties
-		type = 'button',
 		variant = 'primary',
 		size = 'md',
-		fullWidth = false,
+		type = 'button',
+		href = '',
+		target = '',
 		disabled = false,
 		loading = false,
-		href = null,
-		active = false,
-		rounded = 'md',
+		fullWidth = false,
+		class: customClass = '',
+		id = '',
+		ariaLabel = '',
+		ariaControls = '',
+		ariaExpanded = false,
+		dataTestid = ''
+	} = $props<{
+		variant?: ButtonVariant;
+		size?: ButtonSize;
+		type?: ButtonType;
+		href?: string;
+		target?: string;
+		disabled?: boolean;
+		loading?: boolean;
+		fullWidth?: boolean;
+		class?: string;
+		id?: string;
+		ariaLabel?: string;
+		ariaControls?: string;
+		ariaExpanded?: boolean;
+		dataTestid?: string;
+	}>();
 
-		// Icon properties
-		icon = null,
-		iconPosition = 'left',
-		trailingIcon = null,
+	// Reactive states
+	let linkRel = $state('');
 
-		// Additional styling
-		class: className = '',
+	// Event dispatcher
+	const dispatch = createEventDispatcher();
 
-		// Animations
-		animate = true,
-		pulse = false
-	} = $props();
-
-	// Derived values
-	const showLeadingIcon = $derived(icon && (iconPosition === 'left' || !iconPosition));
-	const showTrailingIcon = $derived(trailingIcon || (icon && iconPosition === 'right'));
-	const isDisabled = $derived(disabled || loading);
-	const isLink = $derived(!!href);
-
-	// Variant styles with refined color palette
-	const variantClasses = {
-		primary:
-			'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 focus:ring-blue-500/40 dark:bg-blue-500 dark:hover:bg-blue-600 dark:active:bg-blue-700',
-		secondary:
-			'bg-gray-200 text-gray-800 hover:bg-gray-300 active:bg-gray-400 focus:ring-gray-300/40 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 dark:active:bg-gray-500',
-		danger:
-			'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 focus:ring-red-500/40 dark:bg-red-500 dark:hover:bg-red-600 dark:active:bg-red-700',
-		success:
-			'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 focus:ring-emerald-500/40 dark:bg-emerald-500 dark:hover:bg-emerald-600 dark:active:bg-emerald-700',
-		warning:
-			'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700 focus:ring-amber-400/40 dark:bg-amber-500 dark:hover:bg-amber-600 dark:active:bg-amber-700',
-		info: 'bg-sky-500 text-white hover:bg-sky-600 active:bg-sky-700 focus:ring-sky-400/40 dark:bg-sky-500 dark:hover:bg-sky-600 dark:active:bg-sky-700',
-		ghost:
-			'bg-transparent text-gray-700 hover:bg-gray-100 active:bg-gray-200 focus:ring-gray-300/40 dark:text-gray-300 dark:hover:bg-gray-800 dark:active:bg-gray-700',
-		outline:
-			'bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100 focus:ring-gray-300/40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:active:bg-gray-700'
+	// Tailwind class maps
+	const variants = {
+		primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500',
+		secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500',
+		success: 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500',
+		danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+		warning: 'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500',
+		outline: 'bg-transparent border border-current text-current hover:bg-opacity-10',
+		link: 'bg-transparent text-primary-600 hover:underline p-0'
 	};
 
-	// Size classes with improved spacing
-	const sizeClasses = {
-		xs: 'text-xs px-2 py-1 h-6',
-		sm: 'text-sm px-2.5 py-1.5 h-8',
-		md: 'text-sm px-4 py-2 h-10',
-		lg: 'text-base px-5 py-2.5 h-11',
-		xl: 'text-base px-6 py-3 h-12'
+	const sizes = {
+		xs: 'text-xs px-2 py-1',
+		sm: 'text-sm px-3 py-1.5',
+		md: 'text-base px-4 py-2',
+		lg: 'text-lg px-5 py-2.5'
 	};
 
-	// Rounded corner variants
-	const roundedClasses = {
-		none: 'rounded-none',
-		sm: 'rounded-sm',
-		md: 'rounded-md',
-		lg: 'rounded-lg',
-		xl: 'rounded-xl',
-		full: 'rounded-full'
-	};
+	// Computed classes
+	const buttonClasses = [
+		// Base styles
+		'bg-black inline-flex items-center justify-center font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all',
 
-	// Icon size based on button size
-	const iconSizeClasses = {
-		xs: 'w-3.5 h-3.5',
-		sm: 'w-4 h-4',
-		md: 'w-4.5 h-4.5',
-		lg: 'w-5 h-5',
-		xl: 'w-5.5 h-5.5'
-	};
+		// Variant
+		variants[variant],
 
-	// Text classes for when we have icons
-	const textWithIconClasses = {
-		left: 'ml-2',
-		right: 'mr-2'
-	};
+		// Size
+		sizes[size],
 
-	// Spinner size classes
-	const spinnerSizeClasses = {
-		xs: 'w-3 h-3 border-1',
-		sm: 'w-3.5 h-3.5 border-1',
-		md: 'w-4 h-4 border-2',
-		lg: 'w-4.5 h-4.5 border-2',
-		xl: 'w-5 h-5 border-2'
-	};
+		// Width
+		fullWidth ? 'w-full' : '',
 
-	// Final classes computation
+		// States
+		disabled || loading ? 'opacity-60 cursor-not-allowed' : '',
+
+		// Custom class
+		customClass
+	]
+		.filter(Boolean)
+		.join(' ');
+
+	// Handle href and target for external links
 	$effect(() => {
-		// Recompute when dependencies change
+		if (href && target === '_blank') {
+			linkRel = 'noopener noreferrer';
+		} else {
+			linkRel = '';
+		}
 	});
 
-	const buttonClasses = $derived(`
-    ${variantClasses[variant]}
-    ${sizeClasses[size]}
-    ${roundedClasses[rounded]}
-    ${fullWidth ? 'w-full' : 'w-auto'}
-    ${active ? 'ring-2' : ''}
-    ${animate ? 'transition-all duration-200' : ''}
-    ${pulse ? 'animate-pulse' : ''}
-    ${isDisabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : 'transform hover:-translate-y-0.5 active:translate-y-0'}
-    font-medium inline-flex items-center justify-center
-    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900
-    shadow-sm hover:shadow
-    ${className}
-  `);
+	// Handle click event
+	function handleClick(event: MouseEvent) {
+		if (disabled || loading) {
+			event.preventDefault();
+			return;
+		}
+
+		dispatch('click', event);
+
+		// Handle SvelteKit navigation for internal links
+		if (href && !href.startsWith('http') && !event.ctrlKey && !event.metaKey) {
+			event.preventDefault();
+			goto(href);
+		}
+	}
 </script>
 
-{#if isLink}
-	<a {href} class={buttonClasses} {...$$restProps}>
+{#if href && !disabled}
+	<a
+		{href}
+		{id}
+		class={buttonClasses}
+		target={target || null}
+		rel={linkRel || null}
+		aria-label={ariaLabel || null}
+		aria-expanded={ariaExpanded || null}
+		aria-controls={ariaControls || null}
+		data-testid={dataTestid || null}
+		on:click={handleClick}
+		on:mouseenter
+		on:mouseleave
+		on:focus
+		on:blur
+	>
 		{#if loading}
-			<span
-				class={`mr-2 inline-block animate-spin rounded-full border-2 border-white/20 border-t-white ${spinnerSizeClasses[size]}`}
-			></span>
-		{:else if showLeadingIcon}
-			<span class={iconSizeClasses[size]}>
-				{@html icon}
-			</span>
+			<svg class="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+				></circle>
+				<path
+					class="opacity-75"
+					fill="currentColor"
+					d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+				></path>
+			</svg>
 		{/if}
-
-		<span
-			class={showLeadingIcon
-				? textWithIconClasses.left
-				: showTrailingIcon
-					? textWithIconClasses.right
-					: ''}
-		>
-			<slot></slot>
-		</span>
-
-		{#if showTrailingIcon && !loading}
-			<span class={iconSizeClasses[size]}>
-				{@html trailingIcon || icon}
-			</span>
-		{/if}
+		<slot />
 	</a>
 {:else}
-	<button {type} class={buttonClasses} disabled={isDisabled} {...$$restProps}>
+	<button
+		{id}
+		{type}
+		class={buttonClasses}
+		disabled={disabled || loading}
+		aria-label={ariaLabel || null}
+		aria-expanded={ariaExpanded || null}
+		aria-controls={ariaControls || null}
+		data-testid={dataTestid || null}
+		on:click={handleClick}
+		on:mouseenter
+		on:mouseleave
+		on:focus
+		on:blur
+	>
 		{#if loading}
-			<span
-				class={`mr-2 inline-block animate-spin rounded-full border-2 border-current border-t-transparent ${spinnerSizeClasses[size]}`}
-			></span>
-		{:else if showLeadingIcon}
-			<span class={iconSizeClasses[size]}>
-				{@html icon}
-			</span>
+			<svg class="mr-2 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+				></circle>
+				<path
+					class="opacity-75"
+					fill="currentColor"
+					d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+				></path>
+			</svg>
 		{/if}
-
-		<span
-			class={showLeadingIcon
-				? textWithIconClasses.left
-				: showTrailingIcon
-					? textWithIconClasses.right
-					: ''}
-		>
-			<slot></slot>
-		</span>
-
-		{#if showTrailingIcon && !loading}
-			<span class={iconSizeClasses[size]}>
-				{@html trailingIcon || icon}
-			</span>
-		{/if}
+		<slot />
 	</button>
 {/if}
-
-<style>
-	/* Add subtle micro-interactions */
-	button,
-	a {
-		backface-visibility: hidden;
-		transform: translateZ(0);
-		-webkit-font-smoothing: subpixel-antialiased;
-	}
-
-	/* Crisp text rendering */
-	button,
-	a {
-		text-rendering: optimizeLegibility;
-	}
-
-	/* Improve focus visibility for accessibility */
-	button:focus-visible,
-	a:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: 2px;
-	}
-</style>

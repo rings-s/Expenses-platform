@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { authService } from '$lib/services/auth_services';
 	import { authStore, authError } from '$lib/stores/auth';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -8,48 +8,58 @@
 	import { fade } from 'svelte/transition';
 	import type { ResetPasswordData } from '$lib/types/auth.types';
 
-	// State with runes
+	// State
 	let currentStep = $state('code'); // 'code' or 'password'
 	let resetData = $state<ResetPasswordData>({
 		token: '',
 		password: '',
 		password_confirm: ''
 	});
-	let email = $state(''); // For displaying confirmation
+	let email = $state('');
 	let loading = $state(false);
 	let success = $state(false);
 	let errors = $state<Record<string, string>>({});
 
-	const dispatch = createEventDispatcher();
-
-	// Password validation regex patterns
+	// Password validation patterns
 	const hasLowerCase = /[a-z]/;
 	const hasUpperCase = /[A-Z]/;
 	const hasNumber = /\d/;
 	const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/;
 
-	// On component mount, check if email was stored from request page
-	function initializeComponent() {
-		// Try to get stored email from localStorage
-		if (typeof localStorage !== 'undefined') {
-			const storedEmail = localStorage.getItem('reset_password_email');
-			if (storedEmail) {
-				email = storedEmail;
-			}
+	// Clear errors on input
+	function handleInputChange() {
+		// Clear relevant errors based on which field changed
+		if (resetData.token && errors.token) {
+			errors.token = '';
+		}
+		if (resetData.password && errors.password) {
+			errors.password = '';
+		}
+		if (resetData.password_confirm && resetData.password === resetData.password_confirm && errors.password_confirm) {
+			errors.password_confirm = '';
+		}
+	}
+
+	onMount(() => {
+		// Get email from localStorage
+		const storedEmail = localStorage.getItem('reset_password_email');
+		if (storedEmail) {
+			email = storedEmail;
+			console.log("Retrieved email for password reset:", email);
+		} else {
+			console.log("No email found in localStorage for password reset");
 		}
 
-		// Check if a token was provided in the URL (like ?token=123456)
+		// Check for token in URL
 		if (typeof window !== 'undefined') {
 			const params = new URLSearchParams(window.location.search);
 			const token = params.get('token');
 			if (token) {
 				resetData.token = token;
+				console.log("Retrieved token from URL:", token);
 			}
 		}
-	}
-
-	// Call initialization when component mounts
-	initializeComponent();
+	});
 
 	function validateCode(): boolean {
 		errors = {};
@@ -70,44 +80,47 @@
 	function validatePassword(): boolean {
 		errors = {};
 
-		// Enhanced password validation
 		if (!resetData.password) {
 			errors.password = 'Password is required';
-		} else if (resetData.password.length < 8) {
+			return false;
+		}
+
+		if (resetData.password.length < 8) {
 			errors.password = 'Password must be at least 8 characters long';
-		} else {
-			// Check password complexity
-			let complexityErrors = [];
+			return false;
+		}
 
-			if (!hasLowerCase.test(resetData.password)) {
-				complexityErrors.push('lowercase letter');
-			}
+		// Check password complexity
+		let complexityErrors = [];
+		if (!hasLowerCase.test(resetData.password)) {
+			complexityErrors.push('lowercase letter');
+		}
+		if (!hasUpperCase.test(resetData.password)) {
+			complexityErrors.push('uppercase letter');
+		}
+		if (!hasNumber.test(resetData.password)) {
+			complexityErrors.push('number');
+		}
+		if (!hasSpecialChar.test(resetData.password)) {
+			complexityErrors.push('special character');
+		}
 
-			if (!hasUpperCase.test(resetData.password)) {
-				complexityErrors.push('uppercase letter');
-			}
-
-			if (!hasNumber.test(resetData.password)) {
-				complexityErrors.push('number');
-			}
-
-			if (!hasSpecialChar.test(resetData.password)) {
-				complexityErrors.push('special character');
-			}
-
-			if (complexityErrors.length > 0) {
-				errors.password = `Password must include at least one ${complexityErrors.join(', ')}`;
-			}
+		if (complexityErrors.length > 0) {
+			errors.password = `Password must include at least one ${complexityErrors.join(', ')}`;
+			return false;
 		}
 
 		if (resetData.password !== resetData.password_confirm) {
 			errors.password_confirm = 'Passwords do not match';
+			return false;
 		}
 
-		return Object.keys(errors).length === 0;
+		return true;
 	}
 
 	async function handleVerifyCode() {
+		authStore.clearError();
+
 		if (!validateCode()) {
 			return;
 		}
@@ -115,41 +128,42 @@
 		loading = true;
 
 		try {
-			// Just verify the token exists - no need for an API call here yet
-			// We'll verify when we reset the password
-
-			// Proceed to password step
+			console.log("Verifying reset code:", resetData.token);
+			// We move to the password reset step without separate verification
 			currentStep = 'password';
+		} catch (error) {
+			console.error('Error processing code:', error);
+			authStore.setError('Error processing code. Please try again.');
 		} finally {
 			loading = false;
 		}
 	}
 
 	async function handleResetPassword() {
+		authStore.clearError();
+
 		if (!validatePassword()) {
 			return;
 		}
 
 		loading = true;
-		authStore.clearError();
 
 		try {
+			console.log("Submitting password reset with token:", resetData.token);
 			const result = await authService.resetPassword(resetData);
 
 			if (result) {
 				success = true;
-				dispatch('success');
+				console.log("Password reset successful");
 
 				// Clear stored email
 				if (typeof localStorage !== 'undefined') {
 					localStorage.removeItem('reset_password_email');
 				}
 
-				// After success, redirect to login after a delay
+				// Redirect to login after success
 				setTimeout(() => {
-					if (typeof window !== 'undefined') {
-						window.location.href = '/auth/login';
-					}
+					window.location.href = '/auth/login';
 				}, 3000);
 			}
 		} catch (error) {
@@ -159,6 +173,7 @@
 		}
 	}
 </script>
+
 
 <div class="mx-auto max-w-md">
 	{#if success}
@@ -244,9 +259,10 @@
 						{/if}
 					</p>
 
-					<form on:submit|preventDefault={handleVerifyCode} class="space-y-6">
+					<form on:submit|preventDefault={handleVerifyCode} class="space-y-6" on:input={handleInputChange}>
 						<Input
 							type="text"
+							name="token"
 							label="Reset Code"
 							bind:value={resetData.token}
 							error={errors.token}
@@ -266,7 +282,7 @@
 
 						<!-- Back to request page -->
 						<div class="mt-4 text-center">
-							<a
+
 								href="/auth/request-password-reset"
 								class="text-primary hover:text-primary-dark dark:text-primary-400 dark:hover:text-primary-300 text-sm font-medium"
 							>
@@ -318,10 +334,11 @@
 						</ul>
 					</div>
 
-					<form on:submit|preventDefault={handleResetPassword} class="space-y-6">
+					<form on:submit|preventDefault={handleResetPassword} class="space-y-6" on:input={handleInputChange}>
 						<!-- Password Field -->
 						<Input
 							type="password"
+							name="password"
 							label="New Password"
 							bind:value={resetData.password}
 							error={errors.password}
@@ -332,6 +349,7 @@
 						<!-- Confirm Password Field -->
 						<Input
 							type="password"
+							name="password_confirm"
 							label="Confirm New Password"
 							bind:value={resetData.password_confirm}
 							error={errors.password_confirm}
@@ -359,7 +377,7 @@
 		</div>
 
 		<div class="mt-6 text-center">
-			<a
+
 				href="/auth/login"
 				class="text-primary hover:text-primary-dark dark:text-primary-400 dark:hover:text-primary-300 text-sm font-medium"
 			>
@@ -368,16 +386,3 @@
 		</div>
 	{/if}
 </div>
-
-<style>
-	/* Add subtle animation to inputs */
-	:global(input:focus) {
-		transform: translateY(-1px);
-		transition: all 0.2s ease;
-	}
-
-	/* Add proper spacing for verification code */
-	:global(input[maxlength='6']::placeholder) {
-		letter-spacing: 0.5em;
-	}
-</style>

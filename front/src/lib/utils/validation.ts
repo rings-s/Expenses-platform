@@ -1,12 +1,11 @@
 /**
  * Validation Utilities
  *
- * Comprehensive validation functions for form inputs:
+ * Comprehensive validation for forms:
  * - Email validation
  * - Password validation
- * - Number validation
- * - Date validation
- * - General input validation
+ * - Authentication form validation
+ * - Generic validation utilities
  */
 
 // Types for validation
@@ -25,6 +24,11 @@ export type ValidationOptions = {
 	max?: number;
 	pattern?: RegExp;
 	customValidator?: (value: any) => ValidationResult;
+};
+
+// Data structures for form validation
+export type FormErrors<T extends Record<string, any>> = {
+	[K in keyof T]?: string;
 };
 
 /**
@@ -255,197 +259,223 @@ export function validatePasswordMatch(password: string, confirmPassword: string)
 }
 
 /**
- * Validate a number within constraints
+ * Validate a verification code (e.g., email verification, password reset)
  *
- * @param value Number to validate
- * @param options Validation options
+ * @param code Verification code
+ * @param digits Number of digits expected
  * @returns Validation result
  */
-export function validateNumber(
-	value: number | string,
-	options: {
-		required?: boolean;
-		min?: number;
-		max?: number;
-		integer?: boolean;
-		positive?: boolean;
-	} = {}
-): ValidationResult {
-	// Default options
-	const { required = false, min, max, integer = false, positive = false } = options;
-
-	// Check if value is present if required
-	if (required && (value === null || value === undefined || value === '')) {
-		return { valid: false, error: 'This field is required' };
+export function validateVerificationCode(code: string, digits: number = 6): ValidationResult {
+	if (!code) {
+		return { valid: false, error: 'Verification code is required' };
 	}
 
-	// Skip further validation if value is empty and not required
-	if (!required && (value === null || value === undefined || value === '')) {
-		return { valid: true };
+	if (code.length !== digits) {
+		return { valid: false, error: `Code must be ${digits} digits` };
 	}
 
-	// Convert string to number if needed
-	const numValue = typeof value === 'string' ? parseFloat(value) : value;
-
-	// Check if it's a valid number
-	if (isNaN(numValue)) {
-		return { valid: false, error: 'Please enter a valid number' };
-	}
-
-	// Check if should be integer
-	if (integer && !Number.isInteger(numValue)) {
-		return { valid: false, error: 'Please enter a whole number' };
-	}
-
-	// Check if should be positive
-	if (positive && numValue <= 0) {
-		return { valid: false, error: 'Please enter a positive number' };
-	}
-
-	// Check min constraint
-	if (min !== undefined && numValue < min) {
-		return { valid: false, error: `Value must be at least ${min}` };
-	}
-
-	// Check max constraint
-	if (max !== undefined && numValue > max) {
-		return { valid: false, error: `Value cannot exceed ${max}` };
+	if (!/^\d+$/.test(code)) {
+		return { valid: false, error: 'Code must contain only numbers' };
 	}
 
 	return { valid: true };
 }
 
 /**
- * Validate a date
+ * Validate a username
  *
- * @param date Date to validate (string, Date, or timestamp)
+ * @param username Username to validate
  * @param options Validation options
  * @returns Validation result
  */
-export function validateDate(
-	date: string | Date | number,
+export function validateUsername(
+	username: string,
 	options: {
 		required?: boolean;
-		minDate?: Date | string | number;
-		maxDate?: Date | string | number;
-		format?: string;
+		minLength?: number;
+		maxLength?: number;
+		allowSpecialChars?: boolean;
 	} = {}
 ): ValidationResult {
-	// Default options
-	const { required = false, minDate, maxDate } = options;
+	const { required = true, minLength = 3, maxLength = 30, allowSpecialChars = false } = options;
 
-	// Check if value is present if required
-	if (required && !date) {
-		return { valid: false, error: 'This field is required' };
+	// First check if it's required
+	if (required && !username) {
+		return { valid: false, error: 'Username is required' };
 	}
 
-	// Skip further validation if value is empty and not required
-	if (!required && !date) {
+	// Skip further validation if empty and not required
+	if (!required && !username) {
 		return { valid: true };
 	}
 
-	// Convert to Date object
-	let dateObj: Date;
-
-	try {
-		dateObj =
-			typeof date === 'string' ? new Date(date) : date instanceof Date ? date : new Date(date);
-
-		// Check if it's a valid date
-		if (isNaN(dateObj.getTime())) {
-			return { valid: false, error: 'Please enter a valid date' };
-		}
-	} catch (error) {
-		return { valid: false, error: 'Please enter a valid date' };
+	// Check length
+	if (username.length < minLength) {
+		return { valid: false, error: `Username must be at least ${minLength} characters` };
 	}
 
-	// Check min date constraint
-	if (minDate) {
-		const minDateObj =
-			typeof minDate === 'string'
-				? new Date(minDate)
-				: minDate instanceof Date
-					? minDate
-					: new Date(minDate);
-
-		if (dateObj < minDateObj) {
-			return {
-				valid: false,
-				error: `Date must be on or after ${minDateObj.toLocaleDateString()}`
-			};
-		}
+	if (username.length > maxLength) {
+		return { valid: false, error: `Username cannot exceed ${maxLength} characters` };
 	}
 
-	// Check max date constraint
-	if (maxDate) {
-		const maxDateObj =
-			typeof maxDate === 'string'
-				? new Date(maxDate)
-				: maxDate instanceof Date
-					? maxDate
-					: new Date(maxDate);
+	// Check characters
+	const pattern = allowSpecialChars
+		? /^[a-zA-Z0-9_\-\.]+$/ // Allow letters, numbers, underscore, dash, dot
+		: /^[a-zA-Z0-9_]+$/; // Only allow letters, numbers, underscore
 
-		if (dateObj > maxDateObj) {
-			return {
-				valid: false,
-				error: `Date must be on or before ${maxDateObj.toLocaleDateString()}`
-			};
-		}
+	if (!pattern.test(username)) {
+		return {
+			valid: false,
+			error: allowSpecialChars
+				? 'Username can only contain letters, numbers, underscores, dashes, and dots'
+				: 'Username can only contain letters, numbers, and underscores'
+		};
 	}
 
 	return { valid: true };
 }
 
 /**
- * Validate a URL
+ * Validate login credentials
  *
- * @param url URL to validate
- * @param required Whether the URL is required
- * @returns Validation result
+ * @param email Email address
+ * @param password Password
+ * @returns Object with email and password validation results
  */
-export function validateUrl(url: string, required: boolean = false): ValidationResult {
-	// URL regex pattern
-	const urlPattern =
-		/^(https?:\/\/)?(www\.)?([a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+)(\/[a-zA-Z0-9-_.~:/?#[\]@!$&'()*+,;=]*)?$/;
+export function validateLoginCredentials(
+	email: string,
+	password: string
+): {
+	email: ValidationResult;
+	password: ValidationResult;
+	valid: boolean;
+} {
+	const emailResult = validateEmail(email);
+	const passwordResult = validateInput(password, { required: true });
 
-	return validateInput(url, {
-		required,
-		pattern: urlPattern,
-		customValidator: (value) => {
-			// Check for common protocol mistakes
-			if (value.match(/^http:\/\//i)) {
-				return {
-					valid: true,
-					error: 'Consider using https:// for better security'
-				};
-			}
-
-			return { valid: true };
-		}
-	});
+	return {
+		email: emailResult,
+		password: passwordResult,
+		valid: emailResult.valid && passwordResult.valid
+	};
 }
 
 /**
- * Validate a phone number
+ * Validate registration data
  *
- * @param phone Phone number to validate
- * @param required Whether the phone number is required
- * @returns Validation result
+ * @param data Registration data
+ * @returns Object with field validation results and overall validity
  */
-export function validatePhone(phone: string, required: boolean = false): ValidationResult {
-	// International phone regex pattern
-	const phonePattern = /^\+?[0-9\s\-()]{7,15}$/;
+export function validateRegistrationData(data: {
+	email: string;
+	username: string;
+	password: string;
+	password_confirm: string;
+}): FormErrors<typeof data> & { valid: boolean } {
+	const errors: FormErrors<typeof data> = {};
 
-	return validateInput(phone, {
-		required,
-		pattern: phonePattern,
-		customValidator: (value) => {
-			// Additional validation for phone numbers
-			if (value && value.replace(/\D/g, '').length < 7) {
-				return { valid: false, error: 'Phone number is too short' };
+	// Validate email
+	const emailResult = validateEmail(data.email);
+	if (!emailResult.valid) {
+		errors.email = emailResult.error;
+	}
+
+	// Validate username
+	const usernameResult = validateUsername(data.username);
+	if (!usernameResult.valid) {
+		errors.username = usernameResult.error;
+	}
+
+	// Validate password
+	const passwordResult = validatePassword(data.password);
+	if (!passwordResult.valid) {
+		errors.password = passwordResult.error;
+	}
+
+	// Validate password confirmation
+	if (data.password !== data.password_confirm) {
+		errors.password_confirm = 'Passwords do not match';
+	}
+
+	return {
+		...errors,
+		valid: Object.keys(errors).length === 0
+	};
+}
+
+/**
+ * Validate expense form data
+ *
+ * @param data Expense form data
+ * @returns Object with validation errors
+ */
+export function validateExpenseForm(data: {
+	title: string;
+	amount: number | string;
+	date: string;
+	category_id?: string;
+}): Record<string, string> {
+	const errors: Record<string, string> = {};
+
+	// Title validation
+	if (!data.title.trim()) {
+		errors.title = 'Title is required';
+	} else if (data.title.length > 100) {
+		errors.title = 'Title cannot exceed 100 characters';
+	}
+
+	// Amount validation
+	const amount = typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount;
+
+	if (isNaN(amount) || amount <= 0) {
+		errors.amount = 'Please enter a valid amount greater than zero';
+	}
+
+	// Date validation
+	if (!data.date) {
+		errors.date = 'Date is required';
+	} else {
+		try {
+			const dateObj = new Date(data.date);
+			if (isNaN(dateObj.getTime())) {
+				errors.date = 'Please enter a valid date';
 			}
-
-			return { valid: true };
+		} catch (e) {
+			errors.date = 'Please enter a valid date';
 		}
-	});
+	}
+
+	// Optional category validation
+	if (data.category_id !== undefined && data.category_id === '') {
+		errors.category_id = 'Please select a category';
+	}
+
+	return errors;
+}
+
+/**
+ * Extract validation errors from API response
+ *
+ * @param apiError Error object from API
+ * @returns Formatted error object
+ */
+export function extractValidationErrors(apiError: any): Record<string, string> {
+	const errors: Record<string, string> = {};
+
+	if (!apiError || typeof apiError !== 'object') {
+		return errors;
+	}
+
+	// Handle Django REST Framework validation errors
+	if (apiError.data && typeof apiError.data === 'object') {
+		Object.entries(apiError.data).forEach(([key, value]) => {
+			if (Array.isArray(value)) {
+				errors[key] = value.join(', ');
+			} else if (typeof value === 'string') {
+				errors[key] = value;
+			}
+		});
+	}
+
+	return errors;
 }

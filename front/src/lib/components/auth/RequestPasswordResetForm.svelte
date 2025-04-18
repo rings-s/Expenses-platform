@@ -2,7 +2,6 @@
 	import { createEventDispatcher } from 'svelte';
 	import { authService } from '$lib/services/auth_services';
 	import { authStore, authError } from '$lib/stores/auth';
-	import { goto } from '$app/navigation';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
@@ -13,6 +12,13 @@
 	let errors = $state<Record<string, string>>({});
 
 	const dispatch = createEventDispatcher();
+
+	// Clear error when email is valid
+	function handleInputChange(e) {
+		if (email && /^\S+@\S+\.\S+$/.test(email) && errors.email) {
+			errors.email = '';
+		}
+	}
 
 	async function handleSubmit() {
 		// Reset state
@@ -44,20 +50,24 @@
 					localStorage.setItem('reset_password_email', email);
 				}
 
-				// Redirect to the verification page after a short delay
+				// Direct navigation to reset password page - more reliable than goto()
+				console.log("Password reset code sent successfully. Redirecting...");
 				setTimeout(() => {
-					goto('/auth/reset-email-password');
+					window.location.href = '/auth/reset-email-password';
 				}, 1500);
 
 				dispatch('success', { email });
 			}
+		} catch (error) {
+			console.error('Error requesting password reset:', error);
+			authStore.setError('Failed to send reset code. Please try again.');
 		} finally {
 			loading = false;
 		}
 	}
 </script>
 
-<form on:submit|preventDefault={handleSubmit} class="space-y-6">
+<form on:submit|preventDefault={handleSubmit} class="space-y-6" on:input={handleInputChange}>
 	{#if success}
 		<Alert type="success">
 			<h3 class="text-lg font-medium">Check your email</h3>
@@ -81,6 +91,7 @@
 
 			<Input
 				type="email"
+				name="email"
 				label="Email"
 				bind:value={email}
 				placeholder="your@email.com"
@@ -96,7 +107,8 @@
 	{/if}
 
 	<div class="mt-4 text-center">
-		<a
+
+	   <a
 			href="/auth/login"
 			class="text-primary hover:text-primary-dark dark:text-primary-400 dark:hover:text-primary-300 text-sm"
 		>

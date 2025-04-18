@@ -10,7 +10,6 @@
  */
 
 import { writable, derived } from 'svelte/store';
-import { browser } from '$app/environment';
 
 // Types
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -58,6 +57,9 @@ export interface ToastState {
 const DEFAULT_DURATION = 5000; // 5 seconds
 const DEFAULT_POSITION: ToastPosition = 'bottom-right';
 const DEFAULT_MAX_TOASTS = 5;
+
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
 
 // Create the toast store
 const createToastStore = () => {
@@ -115,7 +117,7 @@ const createToastStore = () => {
 			});
 
 			// Auto-dismiss the toast after duration (if in browser)
-			if (browser && toast.duration > 0) {
+			if (isBrowser && toast.duration > 0) {
 				setTimeout(() => {
 					this.dismiss(id);
 				}, toast.duration);

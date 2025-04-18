@@ -2,7 +2,6 @@
 	import { createEventDispatcher } from 'svelte';
 	import { authService } from '$lib/services/auth_services';
 	import { authStore, authError } from '$lib/stores/auth';
-	import { goto } from '$app/navigation';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
@@ -38,6 +37,31 @@
 	const hasNumber = /\d/;
 	const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/;
 	const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+	// Clear errors when input values change
+	$effect(() => {
+		if (userData.email && emailRegex.test(userData.email) && errors.email) {
+			errors.email = '';
+		}
+	});
+
+	$effect(() => {
+		if (userData.username && userData.username.length >= 3 && errors.username) {
+			errors.username = '';
+		}
+	});
+
+	$effect(() => {
+		if (userData.password && userData.password.length >= 8 && errors.password) {
+			errors.password = '';
+		}
+	});
+
+	$effect(() => {
+		if (userData.password === userData.password_confirm && errors.password_confirm) {
+			errors.password_confirm = '';
+		}
+	});
 
 	function validateForm(): boolean {
 		errors = {};
@@ -113,12 +137,13 @@
 	async function handleSubmit(e) {
 		e.preventDefault(); // Always prevent default form submission
 
+		authStore.clearError();
+
 		if (!validateForm()) {
 			return;
 		}
 
 		loading = true;
-		authStore.clearError();
 
 		try {
 			const result = await authService.register(userData);

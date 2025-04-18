@@ -26,7 +26,8 @@ export function parseToken(token: string): TokenPayload | null {
 
 		const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
 		const jsonPayload = decodeURIComponent(
-			atob(base64)
+			window
+				.atob(base64)
 				.split('')
 				.map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
 				.join('')
@@ -170,6 +171,35 @@ export async function refreshAccessToken(refreshToken: string): Promise<boolean>
 }
 
 /**
+ * Safely attempt to refresh the current token
+ * @returns Promise resolving to a boolean indicating success
+ */
+export async function safeRefreshToken(): Promise<boolean> {
+	const { tokens } = getAuthState();
+
+	if (!tokens?.refresh) {
+		console.warn('No refresh token available');
+		return false;
+	}
+
+	try {
+		console.info('Attempting to refresh access token...');
+		const success = await refreshAccessToken(tokens.refresh);
+
+		if (success) {
+			console.info('Token refreshed successfully');
+			return true;
+		} else {
+			console.warn('Token refresh failed');
+			return false;
+		}
+	} catch (error) {
+		console.error('Error during token refresh:', error);
+		return false;
+	}
+}
+
+/**
  * Check if we should attempt to refresh a token
  * (e.g., if it's about to expire)
  * @param token Access token to check
@@ -190,7 +220,7 @@ export function shouldRefreshToken(token: string, thresholdMinutes: number = 5):
 		const thresholdMs = thresholdMinutes * 60 * 1000;
 		const timeRemaining = expirationTime - currentTime;
 
-		const shouldRefresh = timeRemaining < thresholdMs;
+		const shouldRefresh = timeRemaining < thresholdMs && timeRemaining > 0;
 
 		if (shouldRefresh) {
 			const minutesRemaining = Math.round(timeRemaining / 1000 / 60);
@@ -245,4 +275,50 @@ export function areTokensEqual(token1: string, token2: string): boolean {
 	} catch (error) {
 		return false;
 	}
+}
+
+/**
+ * Check if the current user's token is about to expire
+ * and refresh it if needed
+ * @returns Promise resolving to a boolean indicating success
+ */
+export async function checkAndRefreshToken(): Promise<boolean> {
+	const { tokens } = getAuthState();
+
+	if (!tokens?.access) {
+		return false;
+	}
+
+	if (shouldRefreshToken(tokens.access)) {
+		return safeRefreshToken();
+	}
+
+	return true;
+}
+
+/**
+ * Create a function that periodically checks and refreshes tokens
+ * @param intervalMinutes How often to check token status in minutes
+ * @returns Function to stop the auto-refresh
+ */
+export function startTokenAutoRefresh(intervalMinutes: number = 4): () => void {
+	const interval = setInterval(
+		() => {
+			const { isAuthenticated, tokens } = getAuthState();
+
+			if (isAuthenticated && tokens?.access) {
+				checkAndRefreshToken();
+			} else {
+				// If not authenticated, stop checking
+				stopAutoRefresh();
+			}
+		},
+		intervalMinutes * 60 * 1000
+	);
+
+	const stopAutoRefresh = () => {
+		clearInterval(interval);
+	};
+
+	return stopAutoRefresh;
 }

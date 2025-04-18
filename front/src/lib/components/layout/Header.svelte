@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { isAuthenticated, user, authStore } from '$lib/stores/auth';
+	import { authService } from '$lib/services/auth_services';
+
 	import { clickOutside } from '$lib/actions/clickOutside';
 	import { slide, fade } from 'svelte/transition';
-	import { goto } from '$app/navigation';
 
 	let isMenuOpen = $state(false);
 	let isProfileMenuOpen = $state(false);
@@ -24,8 +25,24 @@
 
 	// Handle logout
 	async function handleLogout() {
-		await authStore.logout();
-		goto('/auth/login');
+		try {
+			console.log("Logging out user...");
+			// First, call the auth service logout function
+			const success = await authService.logout();
+
+			if (success) {
+					console.log("Logout successful, redirecting to login");
+			} else {
+				console.warn("Logout may have failed but continuing with redirect");
+			}
+
+			// Always navigate to login page, even if server-side logout failed
+			window.location.href = '/auth/login';
+		} catch (error) {
+				console.error('Error during logout:', error);
+				// Even if there's an error, force navigation to login
+				window.location.href = '/auth/login';
+		}
 	}
 
 	// Check scroll position to add shadow effect

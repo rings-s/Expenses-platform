@@ -17,6 +17,13 @@
 
 	const dispatch = createEventDispatcher();
 
+	// Clear error when verification code is filled
+	$effect(() => {
+		if (verificationCode && verificationCode.length === 6 && errors.code) {
+			errors.code = '';
+		}
+	});
+
 	async function handleSubmit() {
 		// Reset state
 		errors = {};
@@ -49,6 +56,8 @@
 					}
 				}, 2000);
 			}
+		} catch (error) {
+			console.error('Error verifying email:', error);
 		} finally {
 			loading = false;
 		}
@@ -73,6 +82,8 @@
 		});
 	}
 </script>
+
+<!-- Rest of the component remains the same -->
 
 <div class="w-full">
 	{#if isVisible}

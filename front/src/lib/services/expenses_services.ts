@@ -24,8 +24,13 @@ import type {
 	TimeSeriesData,
 	BudgetComparisonItem,
 	GroupByOption
-} from '$lib/types/expenses';
+} from '$lib/types/expenses.types';
 import type { PaginatedResponse } from '$lib/types/api.types';
+
+// Get API base URL from environment if available, or use default
+const API_BASE_URL = typeof window !== 'undefined' && window.__env__?.API_URL
+    ? window.__env__.API_URL
+    : '/api';
 
 /**
  * Expenses Service
@@ -516,12 +521,17 @@ export const expensesService = {
 
 			// This needs to be handled differently from regular JSON requests
 			// as it returns a file download
+			const token = localStorage.getItem('auth_token');
+			if (!token) {
+				throw new Error('Authentication required');
+			}
+
 			const response = await fetch(
-				`${import.meta.env.VITE_API_URL || ''}/expenses/export/csv/?${params.toString()}`,
+				`${API_BASE_URL}/expenses/export/csv/?${params.toString()}`,
 				{
 					method: 'GET',
 					headers: {
-						Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+						Authorization: `Bearer ${token}`
 					}
 				}
 			);

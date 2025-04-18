@@ -14,9 +14,9 @@
   import { createEventDispatcher } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import { formatCurrency, formatDate, DateFormat } from '$lib/utils/format';
-  import { PAYMENT_METHOD_LABELS } from '$lib/types/expenses';
+  import { PAYMENT_METHOD_LABELS } from '$lib/types/expenses.types';
   import { categories, categoryMap } from '$lib/stores/categories';
-  import type { Expense } from '$lib/types/expenses';
+  import type { Expense } from '$lib/types/expenses.types';
   import Button from '$lib/components/ui/Button.svelte';
   import Alert from '$lib/components/ui/Alert.svelte';
 
@@ -372,9 +372,9 @@
           <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
             {#each displayExpenses as expense (expense.id)}
               <tr
-                class="group transition duration-150 ease-in-out hover:bg-gray-50 dark:hover:bg-gray-700"
-                class:bg-blue-50={expense.id === selectedExpenseId}
-                class:dark:bg-blue-900/20={expense.id === selectedExpenseId}
+                class={`group transition duration-150 ease-in-out hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                  expense.id === selectedExpenseId ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                }`}
                 on:click={() => selectExpense(expense)}
                 on:keydown={e => e.key === 'Enter' && selectExpense(expense)}
                 tabindex={selectable ? 0 : -1}

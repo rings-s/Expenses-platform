@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { authService } from '$lib/services/auth.service';
+	import { authService } from '$lib/services/auth_services'; // Fixed import path
 	import { user, authError, authStore } from '$lib/stores/auth';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
