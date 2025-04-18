@@ -286,76 +286,47 @@ def generate_expense_summary_chart(summary_data, period_name, currency='USD'):
 
 def generate_expense_heatmap(expense_data, year, title='Monthly Expense Heatmap'):
     """Generate a calendar heatmap of daily expenses"""
-    # Create a figure with 4 rows (one for each quarter) and 3 columns (one for each month in quarter)
-    fig, axs = plt.subplots(4, 3, figsize=(15, 10), dpi=100)
+    # Earlier code...
 
-    # Flatten the axis array for easier indexing
-    axs = axs.flatten()
+    # Create a colormap from green to red
+    cmap = LinearSegmentedColormap.from_list('GreenToRed', ['#3FB618', '#FFBC05', '#FF0039'])
 
-    # Define month names
-    month_names = ['January', 'February', 'March', 'April', 'May', 'June',
-                  'July', 'August', 'September', 'October', 'November', 'December']
+    # For each month
+    for month_idx, (month, ax) in enumerate(zip(range(1, 13), axs)):
+        # Set title as month name
+        ax.set_title(month_names[month_idx])
 
-    # Process expense data into a dictionary with date as key
-    expense_by_date = {}
-    max_daily_expense = 0
+        # Create heatmap
+        im = ax.imshow(data, cmap=cmap, aspect='auto', vmin=0, vmax=max_daily_expense)
 
-    for expense in expense_data:
-        date = expense['date']
-        if date.year == year:
-            # Add expense to date
-            if date in expense_by_date:
-                expense_by_date[date] += float(expense['amount'])
-            else:
-                expense_by_date[date] = float(expense['amount'])
+        # Remove axis ticks
+        ax.set_xticks([])
+        ax.set_yticks([])
 
-            # Update max daily expense
-            max_daily_expense = max(max_daily_expense, expense_by_date[date])
+        # Add day of week labels
+        days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        for i, day in enumerate(days):
+            ax.text(i, -0.5, day, ha='center', va='center')
 
-    # Create a heatmap for each month
-    for month in range(1, 13):
-        month_idx = month - 1  # 0-based index for the axs array
-        ax = axs[month_idx]
+    # Add colorbar
+    cbar = fig.colorbar(im, ax=axs, orientation='horizontal', pad=0.05)
+    cbar.set_label(f'Daily Expense Amount ($)')
 
-        # Get the number of days in the month
-        import calendar
-        _, num_days = calendar.monthrange(year, month)
+    # Add title
+    fig.suptitle(title, fontsize=16)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-        # Create a calendar-like grid
-        # 7 columns for days of week (Sun-Sat)
-        # Enough rows to fit all days
-        day_of_week, _ = calendar.monthrange(year, month)
-        num_rows = (num_days + day_of_week - 1) // 7 + 1
+    # Save figure to a bytes buffer
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    plt.close()
 
-        # Create data grid filled with zeros
-        data = np.zeros((num_rows, 7))
-        data.fill(np.nan)  # Fill with NaN to make background transparent
+    # Encode the image as base64
+    buf.seek(0)
+    image_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
-        # Fill the grid with expense data
-        for day in range(1, num_days + 1):
-            amount = 0
-            try:
-                # Construct the date object directly
-                from datetime import datetime
-                expense_date = datetime(year, month, day).date()
-                amount = expense_by_date.get(expense_date, 0)
-            except Exception as e:
-                # Silently handle errors, optionally log them
-                print(f"Error processing heatmap date: {e}")
-                amount = 0
+    return f"data:image/png;base64,{image_base64}"
 
-            # Calculate position in the grid
-            # day_of_week is the weekday of the first day (0 = Monday in calendar.monthrange)
-            # Adjust to make Sunday = 0
-            first_day_of_week = (day_of_week + 1) % 7  # 0 = Sunday, 1 = Monday, etc.
-
-            # Position is determined by day of month and first day of week
-            row = (day + first_day_of_week - 1) // 7
-            col = (day + first_day_of_week - 1) % 7
-
-            data[row, col] = amount
-
-        # Rest of function remains the same
 
 def save_chart_to_file(chart_data, filename=None):
     """Save base64 chart data to a file"""

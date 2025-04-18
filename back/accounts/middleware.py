@@ -14,8 +14,11 @@ def get_user_jwt(request):
         user_auth_tuple = jwt_authentication.authenticate(request)
         if user_auth_tuple is not None:
             user, _ = user_auth_tuple
-    except:
-        pass
+    except Exception as e:
+        # Add logging here
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"JWT authentication failed: {str(e)}")
     return user or AnonymousUser()
 
 

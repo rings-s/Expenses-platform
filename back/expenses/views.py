@@ -510,29 +510,35 @@ class ChartExportView(APIView):
     permission_classes = [IsAuthenticated, EmailVerified]
 
     def post(self, request):
-        # Get chart data from request
-        chart_data = request.data.get('chart_data')
-        if not chart_data:
-            return Response(
-                {"detail": "Chart data is required"},
-                status=status.HTTP_400_BAD_REQUEST
+        try:
+            # Get chart data from request
+            chart_data = request.data.get('chart_data')
+            if not chart_data:
+                return Response(
+                    {"detail": "Chart data is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Save chart to temporary file
+            chart_file = save_chart_to_file(chart_data)
+
+            # Return file response
+            response = FileResponse(
+                open(chart_file, 'rb'),
+                content_type='image/png',
+                as_attachment=True,
+                filename="expense_chart.png"
             )
 
-        # Save chart to temporary file
-        chart_file = save_chart_to_file(chart_data)
+            # Clean up the temporary file after response is sent
+            response._closable_objects.append(open(chart_file, 'rb'))
 
-        # Return file response
-        response = FileResponse(
-            open(chart_file, 'rb'),
-            content_type='image/png',
-            as_attachment=True,
-            filename="expense_chart.png"
-        )
-
-        # Clean up the temporary file after response is sent
-        response._closable_objects.append(open(chart_file, 'rb'))
-
-        return response
+            return response
+        except Exception as e:
+            return Response(
+                {"detail": f"Error generating chart: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 
