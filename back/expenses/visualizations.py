@@ -9,9 +9,10 @@ import matplotlib.ticker as ticker
 import numpy as np
 import io
 import base64
-from datetime import timedelta
+from datetime import datetime, timedelta
 import os
 import tempfile
+import calendar
 
 # Set default matplotlib styles for better appearance
 plt.style.use('ggplot')
@@ -228,6 +229,17 @@ def generate_expense_summary_chart(summary_data, period_name, currency='USD'):
     average = float(summary_data.get('average_expense', 0))
     highest = float(summary_data.get('highest_expense', 0))
 
+    # Get start_date and end_date, handling both string and date objects
+    start_date = summary_data.get('start_date')
+    end_date = summary_data.get('end_date')
+
+    # Convert string dates to datetime objects if needed
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
     # Define color based on total amount
     # Use a gradient from green (low) to red (high)
     if total > 0:
@@ -264,8 +276,6 @@ def generate_expense_summary_chart(summary_data, period_name, currency='USD'):
     axs[1, 1].axis('off')
 
     # Add period range in the figure
-    start_date = summary_data.get('start_date')
-    end_date = summary_data.get('end_date')
     if start_date and end_date:
         date_range = f"Period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
         fig.text(0.5, 0.02, date_range, ha='center', fontsize=10)
@@ -286,18 +296,96 @@ def generate_expense_summary_chart(summary_data, period_name, currency='USD'):
 
 def generate_expense_heatmap(expense_data, year, title='Monthly Expense Heatmap'):
     """Generate a calendar heatmap of daily expenses"""
-    # Earlier code...
+    # Create a figure with a grid of subplots (one for each month)
+    fig, axs = plt.subplots(3, 4, figsize=(15, 9), dpi=100)
+    axs = axs.flatten()  # Flatten to make indexing easier
+
+    # Month names for titles
+    month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                   'July', 'August', 'September', 'October', 'November', 'December']
+
+    # Process expense data
+    expense_by_date = {}
+    max_daily_expense = 0
+
+    # Fill expense_by_date with data from expense_data
+    for expense in expense_data:
+        date_str = expense['date']
+        if isinstance(date_str, str):
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        else:
+            date_obj = date_str
+
+        # Only include expenses from the selected year
+        if date_obj.year != int(year):
+            continue
+
+        # Accumulate expenses for each date
+        date_key = date_obj.isoformat()
+        if date_key in expense_by_date:
+            expense_by_date[date_key] += float(expense['amount'])
+        else:
+            expense_by_date[date_key] = float(expense['amount'])
+
+        # Track maximum daily expense for color scaling
+        max_daily_expense = max(max_daily_expense, expense_by_date[date_key])
+
+    # If no expense data, set a minimum value
+    if max_daily_expense == 0:
+        max_daily_expense = 1
 
     # Create a colormap from green to red
     cmap = LinearSegmentedColormap.from_list('GreenToRed', ['#3FB618', '#FFBC05', '#FF0039'])
 
-    # For each month
-    for month_idx, (month, ax) in enumerate(zip(range(1, 13), axs)):
+    # For each month, create a mini calendar heatmap
+    for month_idx, month in enumerate(range(1, 13)):
+        # Get the axis for this month
+        ax = axs[month_idx]
+
         # Set title as month name
         ax.set_title(month_names[month_idx])
 
+        # Get number of days in the month
+        days_in_month = calendar.monthrange(int(year), month)[1]
+
+        # Get the day of week (0 = Monday, 6 = Sunday) for the first day of month
+        first_day = datetime(int(year), month, 1).weekday()
+        # Convert to Sunday = 0 format if your calendar starts on Sunday
+        first_day = (first_day + 1) % 7
+
+        # Create a 6x7 grid for the month (6 rows to ensure we have enough space)
+        data = np.zeros((6, 7))
+        data.fill(np.nan)  # Fill with NaN to mask days outside the month
+
+        # Fill in the data
+        day = 1
+        for week in range(6):
+            for weekday in range(7):
+                # Skip days before the start of the month
+                if week == 0 and weekday < first_day:
+                    continue
+
+                # Stop if we've gone beyond the end of the month
+                if day > days_in_month:
+                    break
+
+                # Get expense amount for this day
+                date_key = f"{year}-{month:02d}-{day:02d}"
+                amount = expense_by_date.get(date_key, 0)
+
+                # Record the value
+                data[week, weekday] = amount
+
+                # Mark the day number on the calendar
+                ax.text(weekday, week, str(day), ha='center', va='center',
+                       fontsize=8, color='black' if amount < max_daily_expense/2 else 'white')
+
+                day += 1
+
         # Create heatmap
-        im = ax.imshow(data, cmap=cmap, aspect='auto', vmin=0, vmax=max_daily_expense)
+        masked_data = np.ma.array(data, mask=np.isnan(data))
+        im = ax.imshow(masked_data, cmap=cmap, aspect='auto',
+                      vmin=0, vmax=max_daily_expense)
 
         # Remove axis ticks
         ax.set_xticks([])
@@ -306,10 +394,10 @@ def generate_expense_heatmap(expense_data, year, title='Monthly Expense Heatmap'
         # Add day of week labels
         days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
         for i, day in enumerate(days):
-            ax.text(i, -0.5, day, ha='center', va='center')
+            ax.text(i, -0.5, day, ha='center', va='center', fontsize=8)
 
     # Add colorbar
-    cbar = fig.colorbar(im, ax=axs, orientation='horizontal', pad=0.05)
+    cbar = fig.colorbar(im, ax=axs, orientation='horizontal', pad=0.05, fraction=0.05)
     cbar.set_label(f'Daily Expense Amount ($)')
 
     # Add title

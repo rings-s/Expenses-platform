@@ -1,7 +1,7 @@
 from django.db.models import Sum, Count, Avg, Max, F, Q
 from django.utils import timezone
-from datetime import timedelta
-import datetime
+from datetime import timedelta, datetime
+import datetime as dt
 import csv
 import tempfile
 import calendar
@@ -18,6 +18,11 @@ def get_date_range(period, custom_start=None, custom_end=None):
     today = timezone.now().date()
 
     if custom_start and custom_end:
+        # Convert string dates to date objects if needed
+        if isinstance(custom_start, str):
+            custom_start = datetime.strptime(custom_start, '%Y-%m-%d').date()
+        if isinstance(custom_end, str):
+            custom_end = datetime.strptime(custom_end, '%Y-%m-%d').date()
         return custom_start, custom_end
 
     if period == 'today':
@@ -69,6 +74,12 @@ def get_expenses_summary(user, start_date=None, end_date=None, category=None, cu
         today = timezone.now().date()
         start_date = today.replace(day=1)
         end_date = today
+    else:
+        # Convert string dates to date objects if needed
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
 
     # Base queryset filtered by user, date range, and currency
     queryset = Expense.objects.filter(
@@ -114,6 +125,12 @@ def get_expenses_by_category(user, start_date=None, end_date=None, currency='USD
         today = timezone.now().date()
         start_date = today.replace(day=1)
         end_date = today
+    else:
+        # Convert string dates to date objects if needed
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
 
     # Get total expenses for the period for percentage calculation
     total_expenses = Expense.objects.filter(
@@ -181,6 +198,12 @@ def get_expense_time_series(user, start_date, end_date, group_by='day', currency
     Get time series data for expenses (for line/bar charts)
     Group by day, week, month, or year
     """
+    # Convert string dates to date objects if needed
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
     # Base queryset
     queryset = Expense.objects.filter(
         user=user,
@@ -263,8 +286,8 @@ def get_expense_time_series(user, start_date, end_date, group_by='day', currency
         end_year = end_date.year
 
         while current_year <= end_year:
-            year_start = max(datetime.date(current_year, 1, 1), start_date)
-            year_end = min(datetime.date(current_year, 12, 31), end_date)
+            year_start = max(dt.date(current_year, 1, 1), start_date)
+            year_end = min(dt.date(current_year, 12, 31), end_date)
 
             yearly_expenses = queryset.filter(date__gte=year_start, date__lte=year_end)
             time_series.append({
@@ -362,6 +385,12 @@ def generate_expense_csv(user, start_date, end_date, category=None):
     """
     Generate CSV data for expenses
     """
+    # Convert string dates to date objects if needed
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
     # Base queryset
     queryset = Expense.objects.filter(
         user=user,
