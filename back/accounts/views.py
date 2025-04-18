@@ -116,7 +116,6 @@ class LogoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-
 class UserProfileView(APIView):
     """
     Get and update user profile
