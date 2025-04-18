@@ -67,7 +67,24 @@ export default {
 	/**
 	 * Export chart as image
 	 */
+
 	async exportChart(chartData) {
-		return api.post('/expenses/export/chart/', { chart_data: chartData });
+		try {
+			const response = await fetch(`${api.API_BASE_URL}/expenses/export/chart/`, {
+				method: 'POST',
+				headers: api.getHeaders(),
+				body: JSON.stringify({ chart_data: chartData })
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.detail || 'Failed to export chart');
+			}
+
+			return response.blob();
+		} catch (error) {
+			console.error('Chart export error:', error);
+			throw error;
+		}
 	}
 };

@@ -416,6 +416,7 @@ def generate_expense_heatmap(expense_data, year, title='Monthly Expense Heatmap'
     return f"data:image/png;base64,{image_base64}"
 
 
+
 def save_chart_to_file(chart_data, filename=None):
     """Save base64 chart data to a file"""
     if filename is None:
@@ -423,12 +424,25 @@ def save_chart_to_file(chart_data, filename=None):
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
         filename = temp_file.name
 
-    # Remove data URL prefix
-    if chart_data.startswith('data:image/png;base64,'):
-        chart_data = chart_data.replace('data:image/png;base64,', '')
+    try:
+        # Remove data URL prefix
+        if chart_data.startswith('data:image/png;base64,'):
+            chart_data = chart_data.replace('data:image/png;base64,', '')
 
-    # Decode base64 and save to file
-    with open(filename, 'wb') as f:
-        f.write(base64.b64decode(chart_data))
+        # Add padding if needed for correct base64 format
+        padding = len(chart_data) % 4
+        if padding:
+            chart_data += '=' * (4 - padding)
 
-    return filename
+        # Decode base64 data
+        image_data = base64.b64decode(chart_data)
+
+        # Write to file
+        with open(filename, 'wb') as f:
+            f.write(image_data)
+
+        return filename
+    except Exception as e:
+        if os.path.exists(filename):
+            os.remove(filename)  # Clean up if file was created
+        raise Exception(f"Failed to save chart: {str(e)}")

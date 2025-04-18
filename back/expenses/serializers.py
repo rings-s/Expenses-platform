@@ -98,6 +98,10 @@ class ReportSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at', 'categories_data']
 
     def validate_categories(self, categories):
+        # Allow empty category list
+        if not categories:
+            return categories
+
         # Ensure all categories belong to the user
         user = self.context['request'].user
         for category in categories:

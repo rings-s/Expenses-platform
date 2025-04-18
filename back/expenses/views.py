@@ -504,11 +504,14 @@ class ExpenseExportView(APIView):
         return response
 
 
+
 class ChartExportView(APIView):
     """
     Export chart as image file
     """
     permission_classes = [IsAuthenticated, EmailVerified]
+
+
 
     def post(self, request):
         try:
@@ -520,8 +523,11 @@ class ChartExportView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            print(f"Received chart data of length: {len(chart_data)}")
+
             # Save chart to temporary file
             chart_file = save_chart_to_file(chart_data)
+            print(f"Saved chart to temporary file: {chart_file}")
 
             # Return file response
             response = FileResponse(
@@ -536,13 +542,13 @@ class ChartExportView(APIView):
 
             return response
         except Exception as e:
+            import traceback
+            print(f"Error generating chart: {str(e)}")
+            print(traceback.format_exc())
             return Response(
                 {"detail": f"Error generating chart: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
-
 class ExpenseHeatmapView(APIView):
     """
     Generate a calendar heatmap of expenses
