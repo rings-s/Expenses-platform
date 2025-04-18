@@ -48,12 +48,10 @@ class Expense(models.Model):
     )
 
     CURRENCIES = (
+        ('SAR', 'Saudi Riyal'),
         ('USD', 'US Dollar'),
         ('EUR', 'Euro'),
         ('GBP', 'British Pound'),
-        ('INR', 'Indian Rupee'),
-        ('JPY', 'Japanese Yen'),
-        ('CNY', 'Chinese Yuan'),
         ('CAD', 'Canadian Dollar'),
         ('AUD', 'Australian Dollar'),
     )
@@ -70,7 +68,7 @@ class Expense(models.Model):
 
     # Additional fields
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='cash')
-    location = models.CharField(max_length=255, blank=True)
+    location = models.JSONField(default=dict, blank=True)
     notes = models.TextField(blank=True)
     is_recurring = models.BooleanField(default=False)
     receipt_image = models.ImageField(upload_to='receipts/', blank=True, null=True)

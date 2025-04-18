@@ -6,6 +6,7 @@ import csv
 import tempfile
 import calendar
 from decimal import Decimal
+import json
 
 from .models import Expense, Category, Budget
 
@@ -392,7 +393,7 @@ def generate_expense_csv(user, start_date, end_date, category=None):
                 'Amount': float(expense.amount),
                 'Currency': expense.currency,
                 'Payment Method': expense.get_payment_method_display(),
-                'Location': expense.location,
+                'Location': json.dumps(expense.location) if expense.location else '',
                 'Notes': expense.notes
             })
 

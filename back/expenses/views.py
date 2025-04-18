@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from datetime import timedelta
 import os
+import json
 
 from .models import Category, Expense, Budget, Report
 from .serializers import (
