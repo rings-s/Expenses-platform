@@ -89,6 +89,7 @@ class BudgetSerializer(serializers.ModelSerializer):
 
 class ReportSerializer(serializers.ModelSerializer):
     categories_data = CategorySerializer(source='categories', many=True, read_only=True)
+    parameters = serializers.JSONField(required=False, allow_null=True)
 
     class Meta:
         model = Report

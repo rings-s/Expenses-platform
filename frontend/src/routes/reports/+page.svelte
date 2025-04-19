@@ -1,6 +1,7 @@
 <!-- frontend/src/routes/reports/+page.svelte -->
 <script>
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import AppLayout from '$lib/components/layout/AppLayout.svelte';
 	import { reportStore } from '$lib/stores/reportStore';
 	import { categoryStore } from '$lib/stores/categoryStore';
@@ -15,6 +16,7 @@
 	import HeatmapReport from '$lib/components/reports/HeatmapReport.svelte';
 	import SavedReportList from '$lib/components/reports/SavedReportList.svelte';
 	import SaveReportModal from '$lib/components/reports/SaveReportModal.svelte';
+	import ReportInsight from '$lib/components/reports/ReportInsight.svelte';
 
 	import { getDateRangeOptions } from '$lib/utils/dateUtils';
 	const dateRanges = getDateRangeOptions();
@@ -56,7 +58,12 @@
 			categories = $categoryStore.categories;
 
 			// Load initial reports
-			await Promise.all([loadSummary(), loadCategoryReport(), loadSavedReports()]);
+			await Promise.all([
+				loadSummary(),
+				loadCategoryReport(),
+				loadTimeSeriesReport(),
+				loadSavedReports()
+			]);
 		} catch (err) {
 			error = err.message;
 		} finally {
@@ -64,7 +71,7 @@
 		}
 	});
 
-	// Load functions remain the same as in previous implementation
+	// Load functions
 	async function loadSummary() {
 		try {
 			const response = await reportStore.loadExpenseSummary({
@@ -76,7 +83,8 @@
 				chart = response.chart;
 			}
 		} catch (err) {
-			error = err.message;
+			console.error('Summary load error:', err);
+			error = err.message || 'Failed to load summary';
 		}
 	}
 
@@ -92,7 +100,8 @@
 				chart = response.chart;
 			}
 		} catch (err) {
-			error = err.message;
+			console.error('Category report load error:', err);
+			error = err.message || 'Failed to load category report';
 		}
 	}
 
@@ -110,7 +119,8 @@
 				chart = response.chart;
 			}
 		} catch (err) {
-			error = err.message;
+			console.error('Time series load error:', err);
+			error = err.message || 'Failed to load time series';
 		}
 	}
 
@@ -124,7 +134,8 @@
 				chart = response.chart;
 			}
 		} catch (err) {
-			error = err.message;
+			console.error('Heatmap load error:', err);
+			error = err.message || 'Failed to load heatmap';
 		}
 	}
 
@@ -133,35 +144,42 @@
 			await reportStore.loadReports();
 			savedReports = $reportStore.reports;
 		} catch (err) {
-			error = err.message;
+			console.error('Saved reports load error:', err);
+			error = err.message || 'Failed to load saved reports';
 		}
 	}
 
 	// Event handlers
 	function handleTabChange(tab) {
 		activeTab = tab;
+		reloadCurrentTabData();
+	}
+
+	async function reloadCurrentTabData() {
 		loading = true;
-
-		// Load appropriate data based on selected tab
-		switch (tab) {
-			case 'summary':
-				loadSummary();
-				break;
-			case 'by-category':
-				loadCategoryReport();
-				break;
-			case 'trends':
-				loadTimeSeriesReport();
-				break;
-			case 'heatmap':
-				loadHeatmapReport();
-				break;
-			case 'saved':
-				loadSavedReports();
-				break;
+		try {
+			switch (activeTab) {
+				case 'summary':
+					await loadSummary();
+					break;
+				case 'by-category':
+					await loadCategoryReport();
+					break;
+				case 'trends':
+					await loadTimeSeriesReport();
+					break;
+				case 'heatmap':
+					await loadHeatmapReport();
+					break;
+				case 'saved':
+					await loadSavedReports();
+					break;
+			}
+		} catch (err) {
+			error = err.message;
+		} finally {
+			loading = false;
 		}
-
-		loading = false;
 	}
 
 	function handlePeriodChange(event) {
@@ -187,26 +205,6 @@
 		currentYear = event.target.value;
 		if (activeTab === 'heatmap') {
 			loadHeatmapReport();
-		}
-	}
-
-	async function reloadCurrentTabData() {
-		switch (activeTab) {
-			case 'summary':
-				await loadSummary();
-				break;
-			case 'by-category':
-				await loadCategoryReport();
-				break;
-			case 'trends':
-				await loadTimeSeriesReport();
-				break;
-			case 'heatmap':
-				await loadHeatmapReport();
-				break;
-			case 'saved':
-				await loadSavedReports();
-				break;
 		}
 	}
 
@@ -247,18 +245,7 @@
 			successMessage = 'Chart exported successfully!';
 		} catch (err) {
 			console.error('Chart export error:', err);
-
-			// More detailed error handling
-			if (err.response) {
-				try {
-					const errorDetails = await err.response.json();
-					error = errorDetails.detail || JSON.stringify(errorDetails);
-				} catch {
-					error = err.message || 'Failed to export chart';
-				}
-			} else {
-				error = err.message || 'Failed to export chart';
-			}
+			error = err.message || 'Failed to export chart';
 		} finally {
 			loading = false;
 		}
@@ -302,10 +289,8 @@
 				is_favorite: reportData.is_favorite || false
 			};
 
-			// Convert parameters to a JSON string if needed
-			if (typeof fullReportData.parameters !== 'string') {
-				fullReportData.parameters = JSON.stringify(fullReportData.parameters);
-			}
+			// Ensure parameters are a string
+			fullReportData.parameters = JSON.stringify(fullReportData.parameters);
 
 			// Create the report
 			const savedReport = await reportStore.createReport(fullReportData);
@@ -322,25 +307,14 @@
 			}
 		} catch (err) {
 			console.error('Error saving report:', err);
-
-			// More detailed error handling
-			if (err.response) {
-				try {
-					const errorDetails = await err.response.json();
-					error = errorDetails.detail || JSON.stringify(errorDetails);
-				} catch {
-					error = err.message || 'Failed to save report';
-				}
-			} else {
-				error = err.message || 'Failed to save report';
-			}
+			error = err.message || 'Failed to save report';
 		} finally {
 			loading = false;
 		}
 	}
 
 	async function viewReport(report) {
-		window.location.href = `/reports/${report.id}`;
+		goto(`/reports/${report.id}`);
 	}
 
 	async function deleteReport(reportId) {
@@ -403,9 +377,23 @@
 			<div class="h-12 w-12 animate-spin rounded-full border-t-2 border-b-2 border-blue-500"></div>
 		</div>
 	{:else if activeTab === 'summary'}
-		<SummaryReport {summary} {chart} />
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+			<div class="md:col-span-2">
+				<SummaryReport {summary} {chart} />
+			</div>
+			<div>
+				<ReportInsight {summary} {categoryData} {timeSeriesData} />
+			</div>
+		</div>
 	{:else if activeTab === 'by-category'}
-		<CategoryReport {categoryData} {chart} />
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+			<div class="md:col-span-2">
+				<CategoryReport {categoryData} {chart} />
+			</div>
+			<div>
+				<ReportInsight {summary} {categoryData} {timeSeriesData} />
+			</div>
+		</div>
 	{:else if activeTab === 'trends'}
 		<TrendReport {timeSeriesData} {chart} />
 	{:else if activeTab === 'heatmap'}

@@ -3,11 +3,21 @@ import reportService from '../services/reportService';
 
 function createReportStore() {
 	const { subscribe, set, update } = writable({
+		// Core report data collections
 		reports: [],
+		currentReport: null,
+
+		// Analytics data
 		summary: null,
 		categoryData: [],
 		timeSeriesData: [],
 		heatmapData: null,
+
+		// Chart and visualization data
+		chart: null,
+		reportData: null,
+
+		// State management
 		loading: false,
 		error: null
 	});
@@ -38,13 +48,41 @@ function createReportStore() {
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
 
 		/**
-		 * Load expense summary
+		 * Load a specific report by ID
+		 */
+		loadReportById: async (reportId) => {
+			try {
+				update((state) => ({ ...state, loading: true }));
+
+				const { report, data } = await reportService.getReportById(reportId);
+
+				update((state) => ({
+					...state,
+					currentReport: report,
+					reportData: data?.data || null,
+					chart: data?.chart || null,
+					loading: false,
+					error: null
+				}));
+
+				return { report, data };
+			} catch (error) {
+				update((state) => ({
+					...state,
+					loading: false,
+					error: error.message
+				}));
+				throw error;
+			}
+		},
+
+		/**
+		 * Load Expense Summary
 		 */
 		loadExpenseSummary: async (params = {}) => {
 			try {
@@ -55,6 +93,7 @@ function createReportStore() {
 				update((state) => ({
 					...state,
 					summary: response.summary,
+					chart: response.chart || null,
 					loading: false,
 					error: null
 				}));
@@ -63,16 +102,16 @@ function createReportStore() {
 			} catch (error) {
 				update((state) => ({
 					...state,
+					summary: null,
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
 
 		/**
-		 * Load expenses by category
+		 * Load Expenses by Category
 		 */
 		loadExpensesByCategory: async (params = {}) => {
 			try {
@@ -82,7 +121,8 @@ function createReportStore() {
 
 				update((state) => ({
 					...state,
-					categoryData: response.data,
+					categoryData: response.data || [],
+					chart: response.chart || null,
 					loading: false,
 					error: null
 				}));
@@ -91,16 +131,16 @@ function createReportStore() {
 			} catch (error) {
 				update((state) => ({
 					...state,
+					categoryData: [],
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
 
 		/**
-		 * Load expenses time series
+		 * Load Expenses Time Series
 		 */
 		loadExpensesTimeSeries: async (params = {}) => {
 			try {
@@ -110,7 +150,8 @@ function createReportStore() {
 
 				update((state) => ({
 					...state,
-					timeSeriesData: response.data,
+					timeSeriesData: response.data || [],
+					chart: response.chart || null,
 					loading: false,
 					error: null
 				}));
@@ -119,16 +160,16 @@ function createReportStore() {
 			} catch (error) {
 				update((state) => ({
 					...state,
+					timeSeriesData: [],
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
 
 		/**
-		 * Load expense heatmap
+		 * Load Expense Heatmap
 		 */
 		loadExpenseHeatmap: async (params = {}) => {
 			try {
@@ -138,7 +179,7 @@ function createReportStore() {
 
 				update((state) => ({
 					...state,
-					heatmapData: response.chart,
+					heatmapData: response.chart || null,
 					loading: false,
 					error: null
 				}));
@@ -147,10 +188,10 @@ function createReportStore() {
 			} catch (error) {
 				update((state) => ({
 					...state,
+					heatmapData: null,
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
@@ -178,13 +219,12 @@ function createReportStore() {
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
 
 		/**
-		 * Update a report
+		 * Update an existing report
 		 */
 		updateReport: async (reportId, reportData) => {
 			try {
@@ -206,7 +246,6 @@ function createReportStore() {
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
@@ -232,19 +271,18 @@ function createReportStore() {
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
 
 		/**
-		 * Export chart as image
+		 * Export chart
 		 */
 		exportChart: async (chartData) => {
 			try {
 				update((state) => ({ ...state, loading: true }));
 
-				const response = await reportService.exportChart(chartData);
+				const blob = await reportService.exportChart(chartData);
 
 				update((state) => ({
 					...state,
@@ -252,23 +290,40 @@ function createReportStore() {
 					error: null
 				}));
 
-				return response;
+				return blob;
 			} catch (error) {
 				update((state) => ({
 					...state,
 					loading: false,
 					error: error.message
 				}));
-
 				throw error;
 			}
 		},
 
 		/**
-		 * Clear any report errors
+		 * Clear any errors
 		 */
 		clearError: () => {
 			update((state) => ({ ...state, error: null }));
+		},
+
+		/**
+		 * Reset store to initial state
+		 */
+		reset: () => {
+			set({
+				reports: [],
+				currentReport: null,
+				summary: null,
+				categoryData: [],
+				timeSeriesData: [],
+				heatmapData: null,
+				chart: null,
+				reportData: null,
+				loading: false,
+				error: null
+			});
 		}
 	};
 }

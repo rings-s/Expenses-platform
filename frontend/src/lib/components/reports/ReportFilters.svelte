@@ -30,7 +30,7 @@
 	const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 </script>
 
-<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
 	<!-- Time Period (for all except heatmap) -->
 	{#if tab !== 'heatmap' && tab !== 'saved'}
 		<div>
@@ -101,8 +101,8 @@
 	{/if}
 
 	<!-- Action buttons -->
-	<div class="flex items-end justify-end space-x-2 lg:col-span-2">
-		{#if tab !== 'saved'}
+	{#if tab !== 'saved'}
+		<div class="flex justify-end space-x-2 md:col-span-4">
 			<Button variant="outline" on:click={onSaveReport} size="sm">
 				<svg
 					class="mr-1 h-4 w-4"
@@ -138,6 +138,6 @@
 				</svg>
 				Export Chart
 			</Button>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
