@@ -9,6 +9,7 @@
 	export let title = 'Dashboard';
 
 	let isMenuOpen = false;
+	let isSidebarCollapsed = false; // New state to track sidebar collapsed state
 	let isMobileMenuOpen = false;
 	let isUserMenuOpen = false;
 
@@ -16,7 +17,6 @@
 	const navigation = [
 		{ name: 'Dashboard', href: '/dashboard', icon: 'chart-bar' },
 		{ name: 'Expenses', href: '/expenses', icon: 'receipt-tax' },
-		{ name: 'Categories', href: '/categories', icon: 'tag' },
 		{ name: 'Budgets', href: '/budgets', icon: 'currency-dollar' },
 		{ name: 'Reports', href: '/reports', icon: 'document-report' }
 	];
@@ -34,6 +34,10 @@
 	async function handleLogout() {
 		await authStore.logout();
 		goto('/login');
+	}
+
+	function toggleSidebar() {
+		isSidebarCollapsed = !isSidebarCollapsed;
 	}
 
 	function toggleMenu() {
@@ -79,14 +83,40 @@
 </script>
 
 <div class="min-h-screen">
-	<!-- Sidebar for desktop (md and up) - Always visible on desktop -->
-	<div class="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
+	<!-- Sidebar for desktop - Now toggleable -->
+	<div
+		class="{isSidebarCollapsed
+			? 'md:w-16'
+			: 'md:w-64'} hidden transition-all duration-300 md:fixed md:inset-y-0 md:flex md:flex-col"
+	>
 		<div class="flex min-h-0 flex-1 flex-col bg-blue-700">
 			<div class="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-				<div class="flex flex-shrink-0 items-center px-4">
-					<div class="text-white">
+				<div class="flex flex-shrink-0 items-center justify-between px-4">
+					<div class="text-white {isSidebarCollapsed ? 'hidden' : 'block'}">
 						<Logo size="md" />
 					</div>
+					<!-- Toggle button for desktop -->
+					<button
+						class="text-white hover:text-blue-100 focus:outline-none"
+						on:click={toggleSidebar}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d={isSidebarCollapsed
+									? 'M13 5l7 7-7 7M5 5l7 7-7 7'
+									: 'M11 19l-7-7 7-7m8 14l-7-7 7-7'}
+							/>
+						</svg>
+					</button>
 				</div>
 				<nav class="mt-5 flex-1 space-y-1 px-2">
 					{#each navigation as item}
@@ -101,7 +131,9 @@
 							<span class="mr-3 h-6 w-6 flex-shrink-0" aria-hidden="true">
 								{@html icons[item.icon]}
 							</span>
-							{item.name}
+							{#if !isSidebarCollapsed}
+								{item.name}
+							{/if}
 						</a>
 					{/each}
 				</nav>
@@ -109,7 +141,10 @@
 
 			<!-- User profile in sidebar -->
 			<div class="flex flex-shrink-0 border-t border-blue-800 p-4">
-				<button on:click={toggleUserMenu} class="group block w-full flex-shrink-0">
+				<button
+					on:click={toggleUserMenu}
+					class="group block {isSidebarCollapsed ? '' : 'w-full'} flex-shrink-0"
+				>
 					<div class="flex items-center">
 						<div>
 							{#if $userStore.profile?.profile_image}
@@ -128,21 +163,25 @@
 								</div>
 							{/if}
 						</div>
-						<div class="ml-3">
-							<p class="text-sm font-medium text-white">
-								{$userStore.profile?.first_name || $userStore.profile?.username || 'User'}
-							</p>
-							<p class="text-xs font-medium text-blue-200 group-hover:text-white">
-								{$userStore.profile?.email || 'user@example.com'}
-							</p>
-						</div>
+						{#if !isSidebarCollapsed}
+							<div class="ml-3">
+								<p class="text-sm font-medium text-white">
+									{$userStore.profile?.first_name || $userStore.profile?.username || 'User'}
+								</p>
+								<p class="text-xs font-medium text-blue-200 group-hover:text-white">
+									{$userStore.profile?.email || 'user@example.com'}
+								</p>
+							</div>
+						{/if}
 					</div>
 				</button>
 
 				<!-- User dropdown menu on desktop -->
 				{#if isUserMenuOpen}
 					<div
-						class="ring-opacity-5 absolute bottom-12 left-20 z-50 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black focus:outline-none"
+						class="ring-opacity-5 absolute bottom-12 {isSidebarCollapsed
+							? 'left-16'
+							: 'left-20'} z-50 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black focus:outline-none"
 					>
 						{#each userNavigation as item}
 							<a href={item.href} class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -161,7 +200,7 @@
 		</div>
 	</div>
 
-	<!-- Mobile header - Only visible on mobile (below md) -->
+	<!-- Mobile header - Only visible on mobile -->
 	<div class="sticky top-0 z-10 flex h-16 flex-shrink-0 bg-white shadow md:hidden">
 		<button
 			type="button"
@@ -350,8 +389,12 @@
 		</div>
 	{/if}
 
-	<!-- Main content -->
-	<div class="flex flex-1 flex-col md:pl-64">
+	<!-- Main content - Adjust padding based on sidebar state -->
+	<div
+		class="flex flex-1 flex-col {isSidebarCollapsed
+			? 'md:pl-16'
+			: 'md:pl-64'} transition-all duration-300"
+	>
 		<main>
 			<div class="py-6">
 				<div class="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">

@@ -2,47 +2,13 @@
 	import { onMount } from 'svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import Logo from '$lib/components/ui/Logo.svelte';
+	import AppLayout from '$lib/components/layout/AppLayout.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { authStore } from '$lib/stores/authStore';
 	import { goto } from '$app/navigation';
 
 	let mounted = false;
 	let animationComplete = false;
-	let sideNavOpen = true; // Start with sidebar open for desktop, will be controlled with media queries
-
-	// Navigation items
-	const navigation = [
-		{ name: 'Dashboard', href: '/dashboard', icon: 'chart-bar' },
-		{ name: 'Expenses', href: '/expenses', icon: 'receipt-tax' },
-		{ name: 'Categories', href: '/categories', icon: 'tag' },
-		{ name: 'Budgets', href: '/budgets', icon: 'currency-dollar' },
-		{ name: 'Reports', href: '/reports', icon: 'document-report' }
-	];
-
-	// Icons mapping
-	const icons = {
-		'chart-bar': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-    </svg>`,
-		'receipt-tax': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0c1.1.128 1.907 1.077 1.907 2.185ZM9.75 9h.008v.008H9.75V9Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm4.125 4.5h.008v.008h-.008V13.5Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-    </svg>`,
-		tag: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
-      <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
-    </svg>`,
-		'currency-dollar': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-    </svg>`,
-		'document-report': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-    </svg>`
-	};
-
-	function toggleSideNav() {
-		sideNavOpen = !sideNavOpen;
-	}
 
 	function navigateToApp() {
 		if ($authStore.isAuthenticated) {
@@ -68,92 +34,8 @@
 	/>
 </svelte:head>
 
-<div class="flex h-screen overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100">
-	<!-- Side Navigation -->
-	<div
-		class="fixed inset-y-0 left-0 z-40 w-64 transform bg-blue-700 shadow-lg transition-transform duration-300 ease-in-out md:relative md:translate-x-0 {sideNavOpen
-			? 'translate-x-0'
-			: '-translate-x-full'}"
-	>
-		<div class="flex h-full flex-col">
-			<div class="flex items-center p-6">
-				<div class="text-white">
-					<Logo size="md" />
-				</div>
-				<button
-					on:click={toggleSideNav}
-					class="-mr-2 ml-auto rounded-md text-white hover:text-blue-100 focus:outline-none md:hidden"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-				</button>
-			</div>
-
-			<nav class="mt-5 flex-1 space-y-1 px-4">
-				{#each navigation as item}
-					<a
-						href={item.href}
-						class="group flex items-center rounded-md px-2 py-2 text-sm font-medium text-blue-100 hover:bg-blue-600"
-					>
-						<span class="mr-3 h-6 w-6 flex-shrink-0" aria-hidden="true">
-							{@html icons[item.icon]}
-						</span>
-						{item.name}
-					</a>
-				{/each}
-			</nav>
-
-			<div class="mt-auto p-4">
-				<Button
-					variant="outline"
-					size="md"
-					fullWidth={true}
-					class="bg-white text-blue-700 hover:bg-gray-100"
-					on:click={() => goto('/dashboard')}
-				>
-					Go to Dashboard
-				</Button>
-			</div>
-		</div>
-	</div>
-
-	<!-- Mobile menu button (visible on smaller screens) -->
-	<button
-		on:click={toggleSideNav}
-		class="fixed top-4 left-4 z-50 rounded-full bg-blue-600 p-2 text-white shadow-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:outline-none md:hidden {sideNavOpen
-			? 'hidden'
-			: 'block'}"
-	>
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			class="h-6 w-6"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="2"
-				d="M4 6h16M4 12h16M4 18h16"
-			/>
-		</svg>
-	</button>
-
-	<!-- Main Content -->
-	<div class="flex flex-1 flex-col overflow-hidden">
+<AppLayout title="">
+	<div class="flex min-h-[calc(100vh-50px)]">
 		<!-- Main Hero Content -->
 		<div class="relative z-10 flex flex-1 items-center px-4 py-8 sm:px-6 lg:px-8">
 			<!-- 3D Floating shapes decoration -->
@@ -172,7 +54,6 @@
 						class="animate-float-slow absolute right-[15%] bottom-20 h-28 w-28 rounded-full bg-gradient-to-r from-green-200 to-green-300 opacity-50 blur-xl"
 					></div>
 				{/if}
-
 				<!-- 3D mesh grid for depth -->
 				<div
 					class="absolute inset-0 bg-[radial-gradient(#000000_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.02]"
@@ -192,11 +73,9 @@
 								<span class="block text-blue-600">Expenses</span>
 								<span class="block text-blue-600">Effortlessly</span>
 							</h1>
-
 							<p in:fly={{ y: 30, duration: 800, delay: 500 }} class="mt-5 text-xl text-gray-500">
 								Take control of your finances with powerful tracking, budgeting, and analytics.
 							</p>
-
 							<div
 								in:fly={{ y: 20, duration: 800, delay: 700 }}
 								class="mt-8 flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4"
@@ -341,7 +220,7 @@
 			</div>
 		</div>
 	</div>
-</div>
+</AppLayout>
 
 <style>
 	/* Custom animations */
