@@ -228,7 +228,7 @@ class BudgetDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# Report Views
+
 class ReportListView(APIView):
     """
     List all reports or create a new report
@@ -236,17 +236,26 @@ class ReportListView(APIView):
     permission_classes = [IsAuthenticated, EmailVerified]
 
     def get(self, request):
+        """List all reports"""
         reports = Report.objects.filter(user=request.user)
         serializer = ReportSerializer(reports, many=True)
         return Response(serializer.data)
 
     def post(self, request):
+        """Create a new report"""
+        # Debug the incoming data
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Report data received: {request.data}")
+
         serializer = ReportSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # Log validation errors
+        logger.error(f"Report validation errors: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ReportDetailView(APIView):
     """
@@ -538,26 +547,21 @@ class ChartExportView(APIView):
                 )
 
             # Create a temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
-                temp_file.write(image_data)
-                filename = temp_file.name
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+            temp_filename = temp_file.name
+            temp_file.write(image_data)
+            temp_file.close()
 
             # Return file response
             response = FileResponse(
-                open(filename, 'rb'),
+                open(temp_filename, 'rb'),
                 content_type='image/png',
                 as_attachment=True,
                 filename="expense_chart.png"
             )
 
-            # Clean up will happen through a context manager
-            def cleanup_temp_file(response):
-                if os.path.exists(filename):
-                    os.close(response.file.fileno())
-                    os.unlink(filename)
-                return response
-
-            response.close = lambda: cleanup_temp_file(response)
+            # Use FileResponse's built-in file handling
+            # FileResponse will close the file when the response is completed
 
             return response
 

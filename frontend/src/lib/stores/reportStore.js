@@ -203,7 +203,17 @@ function createReportStore() {
 			try {
 				update((state) => ({ ...state, loading: true }));
 
-				const newReport = await reportService.createReport(reportData);
+				// If parameters is an object, it will be properly serialized by fetch
+				const dataToSend = {
+					...reportData,
+					// Make sure start_date and end_date are in proper format
+					start_date: reportData.start_date || null,
+					end_date: reportData.end_date || null,
+					// Ensure categories is an array
+					categories: reportData.categories || []
+				};
+
+				const newReport = await reportService.createReport(dataToSend);
 
 				update((state) => ({
 					...state,

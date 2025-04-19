@@ -1,168 +1,439 @@
-<!-- frontend/src/routes/expenses/+page.svelte -->
+<!-- frontend/src/routes/reports/+page.svelte -->
 <script>
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import AppLayout from '$lib/components/layout/AppLayout.svelte';
-	import { expenseStore } from '$lib/stores/expenseStore';
+	import { reportStore } from '$lib/stores/reportStore';
 	import { categoryStore } from '$lib/stores/categoryStore';
-	import Button from '$lib/components/ui/Button.svelte';
 	import Alert from '$lib/components/ui/Alert.svelte';
-	import ExpenseList from '$lib/components/expenses/ExpenseList.svelte';
-	import ExpenseFilter from '$lib/components/expenses/ExpenseFilter.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
-	// State
-	let expenses = [];
-	let categories = [];
+	// Import report components
+	import ReportTabs from '$lib/components/reports/ReportTabs.svelte';
+	import ReportFilters from '$lib/components/reports/ReportFilters.svelte';
+	import SummaryReport from '$lib/components/reports/SummaryReport.svelte';
+	import CategoryReport from '$lib/components/reports/CategoryReport.svelte';
+	import TrendReport from '$lib/components/reports/TrendReport.svelte';
+	import HeatmapReport from '$lib/components/reports/HeatmapReport.svelte';
+	import SavedReportList from '$lib/components/reports/SavedReportList.svelte';
+	import SaveReportModal from '$lib/components/reports/SaveReportModal.svelte';
+	import ReportInsight from '$lib/components/reports/ReportInsight.svelte';
+
+	import { getDateRangeOptions } from '$lib/utils/dateUtils';
+	const dateRanges = getDateRangeOptions();
+
+	// State variables
 	let loading = true;
 	let error = null;
-	let searchTerm = '';
+	let successMessage = '';
+	let activeTab = 'summary';
+	let currentPeriod = 'this_month';
+	let categories = [];
+	let chart = null;
+	let showSaveModal = false;
 
-	// Filters
-	let filters = {
-		start_date: null,
-		end_date: null,
-		category: '',
-		payment_method: ''
-	};
+	// Chart options
+	let chartType = 'pie';
+	let selectedCategory = '';
+	let currentYear = new Date().getFullYear();
+
+	// Report data
+	let summary = null;
+	let categoryData = [];
+	let timeSeriesData = [];
+	let savedReports = [];
+
+	// Reactive statement to clear success message
+	$: if (successMessage) {
+		setTimeout(() => {
+			successMessage = '';
+		}, 5000);
+	}
 
 	onMount(async () => {
-		loading = true;
 		try {
-			// Load categories first, then expenses
+			loading = true;
+
+			// Load categories
 			await categoryStore.loadCategories();
 			categories = $categoryStore.categories;
 
-			await loadExpenses();
+			// Load initial reports
+			await Promise.all([
+				loadSummary(),
+				loadCategoryReport(),
+				loadTimeSeriesReport(),
+				loadSavedReports()
+			]);
 		} catch (err) {
-			error = err.message;
+			console.error('Error loading initial data:', err);
+			error = err.message || 'Failed to load initial data';
 		} finally {
 			loading = false;
 		}
 	});
 
-	async function loadExpenses() {
+	// Load functions
+	async function loadSummary() {
 		try {
-			await expenseStore.loadExpenses(filters);
-			expenses = $expenseStore.expenses;
+			console.log('Loading summary for period:', currentPeriod);
+			const response = await reportStore.loadExpenseSummary({
+				period: currentPeriod
+			});
+
+			summary = response.summary;
+			if (activeTab === 'summary') {
+				chart = response.chart;
+			}
 		} catch (err) {
-			error = err.message;
+			console.error('Summary load error:', err);
+			error = err.message || 'Failed to load summary';
 		}
 	}
 
-	async function applyFilters() {
-		loading = true;
-		await loadExpenses();
-		loading = false;
+	async function loadCategoryReport() {
+		try {
+			console.log('Loading category report for period:', currentPeriod, 'chart type:', chartType);
+			const response = await reportStore.loadExpensesByCategory({
+				period: currentPeriod,
+				chart_type: chartType
+			});
+
+			categoryData = response.data;
+			if (activeTab === 'by-category') {
+				chart = response.chart;
+			}
+		} catch (err) {
+			console.error('Category report load error:', err);
+			error = err.message || 'Failed to load category report';
+		}
 	}
 
-	async function clearFilters() {
-		filters = {
-			start_date: null,
-			end_date: null,
-			category: '',
-			payment_method: ''
-		};
-		searchTerm = '';
-		loading = true;
-		await loadExpenses();
-		loading = false;
+	async function loadTimeSeriesReport() {
+		try {
+			console.log('Loading time series for period:', currentPeriod, 'category:', selectedCategory);
+			const response = await reportStore.loadExpensesTimeSeries({
+				period: currentPeriod,
+				chart_type: 'line',
+				group_by: 'auto',
+				category: selectedCategory || undefined
+			});
+
+			timeSeriesData = response.data;
+			if (activeTab === 'trends') {
+				chart = response.chart;
+			}
+		} catch (err) {
+			console.error('Time series load error:', err);
+			error = err.message || 'Failed to load time series';
+		}
 	}
 
-	async function deleteExpense(id) {
-		if (confirm('Are you sure you want to delete this expense?')) {
+	async function loadHeatmapReport() {
+		try {
+			console.log('Loading heatmap for year:', currentYear);
+			const response = await reportStore.loadExpenseHeatmap({
+				year: currentYear
+			});
+
+			if (activeTab === 'heatmap') {
+				chart = response.chart;
+			}
+		} catch (err) {
+			console.error('Heatmap load error:', err);
+			error = err.message || 'Failed to load heatmap';
+		}
+	}
+
+	async function loadSavedReports() {
+		try {
+			console.log('Loading saved reports');
+			await reportStore.loadReports();
+			savedReports = $reportStore.reports;
+		} catch (err) {
+			console.error('Saved reports load error:', err);
+			error = err.message || 'Failed to load saved reports';
+		}
+	}
+
+	// Event handlers
+	function handleTabChange(tab) {
+		activeTab = tab;
+		reloadCurrentTabData();
+	}
+
+	async function reloadCurrentTabData() {
+		loading = true;
+		try {
+			error = null;
+
+			switch (activeTab) {
+				case 'summary':
+					await loadSummary();
+					break;
+				case 'by-category':
+					await loadCategoryReport();
+					break;
+				case 'trends':
+					await loadTimeSeriesReport();
+					break;
+				case 'heatmap':
+					await loadHeatmapReport();
+					break;
+				case 'saved':
+					await loadSavedReports();
+					break;
+			}
+		} catch (err) {
+			console.error('Data reload error:', err);
+			error = err.message || 'Failed to load data';
+		} finally {
+			loading = false;
+		}
+	}
+
+	function handlePeriodChange(event) {
+		currentPeriod = event.target.value;
+		reloadCurrentTabData();
+	}
+
+	function handleChartTypeChange(event) {
+		chartType = event.target.value;
+		if (activeTab === 'by-category') {
+			loadCategoryReport();
+		}
+	}
+
+	function handleCategoryChange(event) {
+		selectedCategory = event.target.value;
+		if (activeTab === 'trends') {
+			loadTimeSeriesReport();
+		}
+	}
+
+	function handleYearChange(event) {
+		currentYear = event.target.value;
+		if (activeTab === 'heatmap') {
+			loadHeatmapReport();
+		}
+	}
+
+	async function exportChart() {
+		if (!chart) {
+			error = 'No chart available to export';
+			return;
+		}
+
+		try {
+			loading = true;
+			error = null;
+
+			console.log('Exporting chart...');
+
+			// Ensure chart is a valid base64 image
+			const chartExportData = chart.startsWith('data:image/png;base64,')
+				? chart
+				: `data:image/png;base64,${chart}`;
+
+			const blob = await reportStore.exportChart(chartExportData);
+
+			// Create a download link for the returned file
+			const url = window.URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.style.display = 'none';
+			a.href = url;
+
+			// Generate filename based on current tab and period
+			const tabName = activeTab.replace('-', '_');
+			const fileName = `${tabName}_chart_${new Date().toISOString().split('T')[0]}.png`;
+			a.download = fileName;
+
+			document.body.appendChild(a);
+			a.click();
+			window.URL.revokeObjectURL(url);
+			document.body.removeChild(a);
+
+			// Add success message
+			successMessage = 'Chart exported successfully!';
+		} catch (err) {
+			console.error('Chart export error:', err);
+			error = err.message || 'Failed to export chart';
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function saveReport(event) {
+		const reportData = event.detail;
+
+		try {
+			loading = true;
+			error = null;
+			successMessage = '';
+
+			console.log('Saving report:', reportData);
+
+			// Get date range based on period
+			const dateRange = dateRanges.find((r) => r.value === currentPeriod) || {};
+
+			// Prepare report data
+			const fullReportData = {
+				name: reportData.name,
+				description: reportData.description || '',
+				report_type:
+					activeTab === 'summary'
+						? 'expense_summary'
+						: activeTab === 'by-category'
+							? 'expenses_by_category'
+							: activeTab === 'trends'
+								? 'expenses_over_time'
+								: activeTab === 'heatmap'
+									? 'expense_heatmap'
+									: 'custom',
+				chart_type: chartType || 'bar',
+				start_date: dateRange.start || null,
+				end_date: dateRange.end || null,
+				parameters: {
+					period: currentPeriod,
+					category: selectedCategory || null,
+					chart_type: chartType,
+					year: currentYear
+				},
+				is_favorite: reportData.is_favorite || false,
+				categories: [] // Ensure this is sent, even if empty
+			};
+
+			console.log('Full report data:', fullReportData);
+
+			// Create the report
+			const savedReport = await reportStore.createReport(fullReportData);
+
+			// Close modal
+			showSaveModal = false;
+
+			// Show success message
+			successMessage = `Report "${savedReport.name}" saved successfully!`;
+
+			// If on saved reports tab, refresh the list
+			if (activeTab === 'saved') {
+				await loadSavedReports();
+			}
+		} catch (err) {
+			console.error('Error saving report:', err);
+			error = err.message || 'Failed to save report';
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function viewReport(report) {
+		goto(`/reports/${report.id}`);
+	}
+
+	async function deleteReport(reportId) {
+		if (confirm('Are you sure you want to delete this report?')) {
 			try {
 				loading = true;
-				await expenseStore.deleteExpense(id);
-				await loadExpenses();
+				await reportStore.deleteReport(reportId);
+				await loadSavedReports();
+				successMessage = 'Report deleted successfully!';
 			} catch (err) {
-				error = err.message;
+				console.error('Report deletion error:', err);
+				error = err.message || 'Failed to delete report';
 			} finally {
 				loading = false;
 			}
 		}
 	}
-
-	async function exportExpenses() {
-		try {
-			loading = true;
-			await expenseStore.exportExpenses(filters);
-			loading = false;
-		} catch (err) {
-			error = err.message;
-			loading = false;
-		}
-	}
-
-	// Filter expenses by search term
-	$: filteredExpenses = expenses.filter((expense) =>
-		searchTerm
-			? expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				(expense.category_name &&
-					expense.category_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-				(expense.notes && expense.notes.toLowerCase().includes(searchTerm.toLowerCase()))
-			: true
-	);
 </script>
 
 <svelte:head>
-	<title>Expenses - Expensis</title>
+	<title>Reports - Expensis</title>
 </svelte:head>
 
-<AppLayout title="Expenses">
+<AppLayout title="Reports & Analytics">
+	<!-- Success Message -->
+	{#if successMessage}
+		<Alert type="success">{successMessage}</Alert>
+	{/if}
+
+	<!-- Error Message -->
 	{#if error}
 		<Alert type="error">{error}</Alert>
 	{/if}
 
-	<!-- Filters and Actions Bar -->
-	<div class="mb-6 rounded-lg bg-white p-4 shadow">
-		<div class="mb-4 flex flex-col items-center justify-between sm:flex-row">
-			<h2 class="text-lg font-medium">Expense Management</h2>
-			<div class="mt-2 flex space-x-2 sm:mt-0">
-				<Button variant="primary" on:click={() => (window.location.href = '/expenses/new')}>
-					<svg
-						class="mr-1 h-4 w-4"
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 4v16m8-8H4"
-						/>
-					</svg>
-					Add Expense
-				</Button>
-				<Button variant="outline" on:click={exportExpenses}>
-					<svg
-						class="mr-1 h-4 w-4"
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-						/>
-					</svg>
-					Export
-				</Button>
-			</div>
-		</div>
+	<!-- Navigation Tabs -->
+	<div class="mb-6 rounded-lg bg-white shadow">
+		<ReportTabs {activeTab} onTabChange={handleTabChange} />
+	</div>
 
-		<ExpenseFilter
+	<!-- Filters and Settings -->
+	<div class="mb-6 rounded-lg bg-white p-4 shadow">
+		<ReportFilters
+			tab={activeTab}
 			{categories}
-			bind:filters
-			bind:searchTerm
-			onApplyFilters={applyFilters}
-			onClearFilters={clearFilters}
+			{currentPeriod}
+			{chartType}
+			{selectedCategory}
+			{currentYear}
+			onPeriodChange={handlePeriodChange}
+			onChartTypeChange={handleChartTypeChange}
+			onCategoryChange={handleCategoryChange}
+			onYearChange={handleYearChange}
+			onExportChart={exportChart}
+			onSaveReport={() => (showSaveModal = true)}
 		/>
 	</div>
 
-	<!-- Expenses Table -->
-	<ExpenseList expenses={filteredExpenses} {loading} onDelete={deleteExpense} />
+	<!-- Report Content -->
+	{#if loading}
+		<div class="flex h-64 items-center justify-center rounded-lg bg-white shadow">
+			<div class="h-12 w-12 animate-spin rounded-full border-t-2 border-b-2 border-blue-500"></div>
+		</div>
+	{:else if activeTab === 'summary'}
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+			<div class="md:col-span-2">
+				<SummaryReport {summary} {chart} />
+			</div>
+			<div>
+				<ReportInsight {summary} {categoryData} {timeSeriesData} />
+			</div>
+		</div>
+	{:else if activeTab === 'by-category'}
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+			<div class="md:col-span-2">
+				<CategoryReport {categoryData} {chart} />
+			</div>
+			<div>
+				<ReportInsight {summary} {categoryData} {timeSeriesData} />
+			</div>
+		</div>
+	{:else if activeTab === 'trends'}
+		<TrendReport {timeSeriesData} {chart} />
+	{:else if activeTab === 'heatmap'}
+		<HeatmapReport {chart} {currentYear} />
+	{:else if activeTab === 'saved'}
+		<SavedReportList
+			reports={savedReports}
+			onViewReport={viewReport}
+			onDeleteReport={deleteReport}
+		/>
+	{/if}
+
+	<!-- Save Report Modal -->
+	<SaveReportModal
+		isOpen={showSaveModal}
+		reportType={activeTab === 'summary'
+			? 'expense_summary'
+			: activeTab === 'by-category'
+				? 'expenses_by_category'
+				: activeTab === 'trends'
+					? 'expenses_over_time'
+					: activeTab === 'heatmap'
+						? 'expense_heatmap'
+						: 'custom'}
+		{chartType}
+		on:save={saveReport}
+		on:close={() => (showSaveModal = false)}
+	/>
 </AppLayout>

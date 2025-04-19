@@ -89,7 +89,6 @@ class BudgetSerializer(serializers.ModelSerializer):
 
 class ReportSerializer(serializers.ModelSerializer):
     categories_data = CategorySerializer(source='categories', many=True, read_only=True)
-    parameters = serializers.JSONField(required=False, allow_null=True)
 
     class Meta:
         model = Report
@@ -97,6 +96,13 @@ class ReportSerializer(serializers.ModelSerializer):
                  'start_date', 'end_date', 'parameters', 'categories',
                  'categories_data', 'is_favorite', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at', 'categories_data']
+
+    def validate(self, data):
+        # Convert parameters to a string if it's a dict
+        if 'parameters' in data and isinstance(data['parameters'], dict):
+            import json
+            data['parameters'] = json.dumps(data['parameters'])
+        return data
 
     def validate_categories(self, categories):
         # Allow empty category list
@@ -127,8 +133,6 @@ class ReportSerializer(serializers.ModelSerializer):
         report.categories.set(categories)
 
         return report
-
-
 class ExpenseSummarySerializer(serializers.Serializer):
     """Serializer for expense summary data"""
     total_expenses = serializers.DecimalField(max_digits=12, decimal_places=2)

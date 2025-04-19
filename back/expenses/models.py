@@ -185,13 +185,17 @@ class Budget(models.Model):
         return result.get('amount__sum') or 0
 
 
+
+
 class Report(models.Model):
     """
     Saved report configurations
     """
     REPORT_TYPES = (
+        ('expense_summary', 'Expense Summary'),
         ('expenses_by_category', 'Expenses by Category'),
         ('expenses_over_time', 'Expenses Over Time'),
+        ('expense_heatmap', 'Expense Heatmap'),
         ('budget_vs_actual', 'Budget vs Actual'),
         ('spending_trends', 'Spending Trends'),
         ('custom', 'Custom Report'),
@@ -201,13 +205,14 @@ class Report(models.Model):
         ('bar', 'Bar Chart'),
         ('line', 'Line Chart'),
         ('pie', 'Pie Chart'),
+        ('doughnut', 'Doughnut Chart'),
         ('scatter', 'Scatter Plot'),
         ('stacked_bar', 'Stacked Bar Chart'),
     )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True, null=True)
     report_type = models.CharField(max_length=50, choices=REPORT_TYPES)
     chart_type = models.CharField(max_length=20, choices=CHART_TYPES, default='bar')
 
@@ -216,7 +221,7 @@ class Report(models.Model):
     end_date = models.DateField(null=True, blank=True)
 
     # Configuration options stored as JSON
-    parameters = models.JSONField(default=dict, blank=True)
+    parameters = models.JSONField(default=dict, blank=True, null=True)
 
     # Relations
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='expense_reports')

@@ -262,6 +262,14 @@
 			// Get date range based on period
 			const dateRange = dateRanges.find((r) => r.value === currentPeriod) || {};
 
+			// Prepare parameters as a simple object
+			const parameters = {
+				period: currentPeriod,
+				category: selectedCategory || null,
+				chart_type: chartType,
+				year: currentYear
+			};
+
 			// Prepare report data
 			const fullReportData = {
 				name: reportData.name,
@@ -279,18 +287,11 @@
 				chart_type: chartType || 'bar',
 				start_date: dateRange.start || null,
 				end_date: dateRange.end || null,
-				categories: [],
-				parameters: {
-					period: currentPeriod,
-					category: selectedCategory || null,
-					chart_type: chartType,
-					year: currentYear
-				},
+				parameters: parameters,
 				is_favorite: reportData.is_favorite || false
 			};
 
-			// Ensure parameters are a string
-			fullReportData.parameters = JSON.stringify(fullReportData.parameters);
+			console.log('Saving report with data:', fullReportData);
 
 			// Create the report
 			const savedReport = await reportStore.createReport(fullReportData);

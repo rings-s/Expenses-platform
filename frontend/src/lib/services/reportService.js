@@ -23,11 +23,29 @@ export default {
 			// Fetch report details
 			const report = await api.get(`/expenses/reports/${reportId}/`);
 
-			// Parse parameters
-			const params = report.parameters ? JSON.parse(report.parameters) : {};
-
 			// Determine analytics endpoint based on report type
 			let analyticsData;
+			let params = {};
+
+			// Parse parameters if they exist
+			if (report.parameters) {
+				try {
+					if (typeof report.parameters === 'string') {
+						params = JSON.parse(report.parameters);
+					} else {
+						params = report.parameters;
+					}
+				} catch (e) {
+					console.warn('Failed to parse report parameters:', e);
+					params = {};
+				}
+			}
+
+			// Add date filters if they exist
+			if (report.start_date) params.start_date = report.start_date;
+			if (report.end_date) params.end_date = report.end_date;
+
+			// Load appropriate data based on report type
 			switch (report.report_type) {
 				case 'expense_summary':
 				case 'summary':
@@ -35,15 +53,23 @@ export default {
 					break;
 				case 'expenses_by_category':
 				case 'by_category':
-					analyticsData = await this.getExpensesByCategory(params);
+					analyticsData = await this.getExpensesByCategory({
+						...params,
+						chart_type: report.chart_type || 'pie'
+					});
 					break;
 				case 'expenses_over_time':
 				case 'trends':
-					analyticsData = await this.getExpensesTimeSeries(params);
+					analyticsData = await this.getExpensesTimeSeries({
+						...params,
+						chart_type: report.chart_type || 'line'
+					});
 					break;
 				case 'expense_heatmap':
 				case 'heatmap':
-					analyticsData = await this.getExpenseHeatmap(params);
+					analyticsData = await this.getExpenseHeatmap({
+						year: params.year || new Date().getFullYear()
+					});
 					break;
 				default:
 					analyticsData = null;
@@ -64,25 +90,35 @@ export default {
 	 */
 	async createReport(reportData) {
 		try {
-			// Ensure parameters are stringified
-			if (reportData.parameters && typeof reportData.parameters !== 'string') {
-				reportData.parameters = JSON.stringify(reportData.parameters);
-			}
+			// Ensure correct data format for API
+			const dataToSend = {
+				...reportData,
+				// Make sure parameters is properly formatted
+				parameters: reportData.parameters || {},
+				// Ensure categories is an array
+				categories: reportData.categories || []
+			};
 
-			// Ensure categories is an array
-			reportData.categories = reportData.categories || [];
+			console.log('Sending report data to API:', dataToSend);
 
-			const response = await api.post('/expenses/reports/', reportData);
+			// Make the API call
+			const response = await api.post('/expenses/reports/', dataToSend);
 			return response;
 		} catch (error) {
 			console.error('Error creating report:', error);
 
-			// Enhanced error handling
 			if (error.response) {
 				try {
-					const errorDetails = await error.response.json();
-					throw new Error(errorDetails.detail || JSON.stringify(errorDetails));
-				} catch (parseError) {
+					const errorText = await error.response.text();
+					console.error('Server error response:', errorText);
+
+					try {
+						const errorData = JSON.parse(errorText);
+						throw new Error(errorData.detail || JSON.stringify(errorData));
+					} catch (parseError) {
+						throw new Error(errorText || 'Failed to create report');
+					}
+				} catch (e) {
 					throw error;
 				}
 			}
@@ -91,7 +127,38 @@ export default {
 	},
 
 	/**
-	 * Export chart as image with robust error handling
+	 * Update an existing report
+	 */
+	async updateReport(reportId, reportData) {
+		try {
+			// Ensure correct data format
+			const dataToSend = {
+				...reportData,
+				parameters: reportData.parameters || {},
+				categories: reportData.categories || []
+			};
+
+			return await api.put(`/expenses/reports/${reportId}/`, dataToSend);
+		} catch (error) {
+			console.error(`Error updating report ${reportId}:`, error);
+			throw error;
+		}
+	},
+
+	/**
+	 * Delete a report
+	 */
+	async deleteReport(reportId) {
+		try {
+			return await api.delete(`/expenses/reports/${reportId}/`);
+		} catch (error) {
+			console.error(`Error deleting report ${reportId}:`, error);
+			throw error;
+		}
+	},
+
+	/**
+	 * Export chart as image
 	 */
 	async exportChart(chartData) {
 		try {
@@ -111,12 +178,13 @@ export default {
 
 			if (!response.ok) {
 				const errorText = await response.text();
+				console.error('Server error response:', errorText);
+
 				let errorMessage = 'Failed to export chart';
 				try {
 					const errorData = JSON.parse(errorText);
 					errorMessage = errorData.detail || errorMessage;
 				} catch (e) {
-					// If not JSON, use text as is
 					errorMessage = errorText || errorMessage;
 				}
 				throw new Error(errorMessage);
@@ -129,7 +197,9 @@ export default {
 		}
 	},
 
-	// Other methods remain the same as in the original implementation
+	/**
+	 * Get expense summary data
+	 */
 	async getExpenseSummary(params = {}) {
 		try {
 			return await api.get('/expenses/analytics/summary/', params);
@@ -139,6 +209,9 @@ export default {
 		}
 	},
 
+	/**
+	 * Get expenses by category data
+	 */
 	async getExpensesByCategory(params = {}) {
 		try {
 			return await api.get('/expenses/analytics/by-category/', params);
@@ -148,6 +221,9 @@ export default {
 		}
 	},
 
+	/**
+	 * Get expenses time series data
+	 */
 	async getExpensesTimeSeries(params = {}) {
 		try {
 			return await api.get('/expenses/analytics/time-series/', params);
@@ -157,6 +233,9 @@ export default {
 		}
 	},
 
+	/**
+	 * Get expense heatmap data
+	 */
 	async getExpenseHeatmap(params = { year: new Date().getFullYear() }) {
 		try {
 			return await api.get('/expenses/analytics/heatmap/', params);
@@ -166,29 +245,14 @@ export default {
 		}
 	},
 
-	// Delete and update methods remain the same
-	async deleteReport(reportId) {
+	/**
+	 * Get budget comparison data
+	 */
+	async getBudgetComparison(params = {}) {
 		try {
-			return await api.delete(`/expenses/reports/${reportId}/`);
+			return await api.get('/expenses/analytics/budget-comparison/', params);
 		} catch (error) {
-			console.error(`Error deleting report ${reportId}:`, error);
-			throw error;
-		}
-	},
-
-	async updateReport(reportId, reportData) {
-		try {
-			// Ensure parameters are stringified
-			if (reportData.parameters && typeof reportData.parameters !== 'string') {
-				reportData.parameters = JSON.stringify(reportData.parameters);
-			}
-
-			// Ensure categories is an array
-			reportData.categories = reportData.categories || [];
-
-			return await api.put(`/expenses/reports/${reportId}/`, reportData);
-		} catch (error) {
-			console.error(`Error updating report ${reportId}:`, error);
+			console.error('Error fetching budget comparison:', error);
 			throw error;
 		}
 	}
