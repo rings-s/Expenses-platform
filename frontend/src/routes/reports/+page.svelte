@@ -16,9 +16,13 @@
 	import SavedReportList from '$lib/components/reports/SavedReportList.svelte';
 	import SaveReportModal from '$lib/components/reports/SaveReportModal.svelte';
 
-	// State
+	import { getDateRangeOptions } from '$lib/utils/dateUtils';
+	const dateRanges = getDateRangeOptions();
+
+	// State variables
 	let loading = true;
 	let error = null;
+	let successMessage = '';
 	let activeTab = 'summary';
 	let currentPeriod = 'this_month';
 	let categories = [];
@@ -35,6 +39,13 @@
 	let categoryData = [];
 	let timeSeriesData = [];
 	let savedReports = [];
+
+	// Reactive statement to clear success message
+	$: if (successMessage) {
+		setTimeout(() => {
+			successMessage = '';
+		}, 5000);
+	}
 
 	onMount(async () => {
 		try {
@@ -53,6 +64,7 @@
 		}
 	});
 
+	// Load functions remain the same as in previous implementation
 	async function loadSummary() {
 		try {
 			const response = await reportStore.loadExpenseSummary({
@@ -125,6 +137,7 @@
 		}
 	}
 
+	// Event handlers
 	function handleTabChange(tab) {
 		activeTab = tab;
 		loading = true;
@@ -207,43 +220,49 @@
 			loading = true;
 			error = null;
 
-			// Make sure the chart data is a valid base64 image
-			if (!chart.startsWith('data:image/png;base64,')) {
-				error = 'Invalid chart data format';
-				loading = false;
-				return;
-			}
+			// Ensure chart is a valid base64 image
+			const chartExportData = chart.startsWith('data:image/png;base64,')
+				? chart
+				: `data:image/png;base64,${chart}`;
 
-			const blob = await reportStore.exportChart(chart);
+			const blob = await reportStore.exportChart(chartExportData);
 
 			// Create a download link for the returned file
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.style.display = 'none';
 			a.href = url;
-			a.download = 'expense_chart.png';
+
+			// Generate filename based on current tab and period
+			const tabName = activeTab.replace('-', '_');
+			const fileName = `${tabName}_chart_${new Date().toISOString().split('T')[0]}.png`;
+			a.download = fileName;
+
 			document.body.appendChild(a);
 			a.click();
 			window.URL.revokeObjectURL(url);
 			document.body.removeChild(a);
 
-			loading = false;
+			// Add success message
+			successMessage = 'Chart exported successfully!';
 		} catch (err) {
-			error = err.message || 'Failed to export chart';
+			console.error('Chart export error:', err);
+
+			// More detailed error handling
+			if (err.response) {
+				try {
+					const errorDetails = await err.response.json();
+					error = errorDetails.detail || JSON.stringify(errorDetails);
+				} catch {
+					error = err.message || 'Failed to export chart';
+				}
+			} else {
+				error = err.message || 'Failed to export chart';
+			}
+		} finally {
 			loading = false;
 		}
 	}
-
-	function openSaveReportModal() {
-		showSaveModal = true;
-	}
-
-	function closeSaveReportModal() {
-		showSaveModal = false;
-	}
-
-	// frontend/src/routes/reports/+page.svelte
-	// Update the saveReport function
 
 	async function saveReport(event) {
 		const reportData = event.detail;
@@ -251,44 +270,76 @@
 		try {
 			loading = true;
 			error = null;
+			successMessage = '';
 
 			// Get date range based on period
 			const dateRange = dateRanges.find((r) => r.value === currentPeriod) || {};
 
-			// Add additional data from current state
+			// Prepare report data
 			const fullReportData = {
-				...reportData,
+				name: reportData.name,
+				description: reportData.description || '',
+				report_type:
+					activeTab === 'summary'
+						? 'expense_summary'
+						: activeTab === 'by-category'
+							? 'expenses_by_category'
+							: activeTab === 'trends'
+								? 'expenses_over_time'
+								: activeTab === 'heatmap'
+									? 'expense_heatmap'
+									: 'custom',
+				chart_type: chartType || 'bar',
 				start_date: dateRange.start || null,
 				end_date: dateRange.end || null,
-				categories: [], // Empty array for categories (required by backend)
+				categories: [],
 				parameters: {
 					period: currentPeriod,
 					category: selectedCategory || null,
-					chart_type: chartType
-				}
+					chart_type: chartType,
+					year: currentYear
+				},
+				is_favorite: reportData.is_favorite || false
 			};
 
-			console.log('Saving report with data:', fullReportData);
+			// Convert parameters to a JSON string if needed
+			if (typeof fullReportData.parameters !== 'string') {
+				fullReportData.parameters = JSON.stringify(fullReportData.parameters);
+			}
 
-			await reportStore.createReport(fullReportData);
+			// Create the report
+			const savedReport = await reportStore.createReport(fullReportData);
 
+			// Close modal
 			showSaveModal = false;
+
+			// Show success message
+			successMessage = `Report "${savedReport.name}" saved successfully!`;
 
 			// If on saved reports tab, refresh the list
 			if (activeTab === 'saved') {
 				await loadSavedReports();
 			}
-
-			loading = false;
 		} catch (err) {
 			console.error('Error saving report:', err);
-			error = err.message || 'Failed to save report';
+
+			// More detailed error handling
+			if (err.response) {
+				try {
+					const errorDetails = await err.response.json();
+					error = errorDetails.detail || JSON.stringify(errorDetails);
+				} catch {
+					error = err.message || 'Failed to save report';
+				}
+			} else {
+				error = err.message || 'Failed to save report';
+			}
+		} finally {
 			loading = false;
 		}
 	}
 
 	async function viewReport(report) {
-		// Navigate to the report detail page
 		window.location.href = `/reports/${report.id}`;
 	}
 
@@ -298,9 +349,10 @@
 				loading = true;
 				await reportStore.deleteReport(reportId);
 				await loadSavedReports();
-				loading = false;
+				successMessage = 'Report deleted successfully!';
 			} catch (err) {
 				error = err.message;
+			} finally {
 				loading = false;
 			}
 		}
@@ -312,6 +364,12 @@
 </svelte:head>
 
 <AppLayout title="Reports & Analytics">
+	<!-- Success Message -->
+	{#if successMessage}
+		<Alert type="success">{successMessage}</Alert>
+	{/if}
+
+	<!-- Error Message -->
 	{#if error}
 		<Alert type="error">{error}</Alert>
 	{/if}
@@ -335,7 +393,7 @@
 			onCategoryChange={handleCategoryChange}
 			onYearChange={handleYearChange}
 			onExportChart={exportChart}
-			onSaveReport={openSaveReportModal}
+			onSaveReport={() => (showSaveModal = true)}
 		/>
 	</div>
 
@@ -374,7 +432,6 @@
 						: 'custom'}
 		{chartType}
 		on:save={saveReport}
-		on:error={(e) => (error = e.detail)}
-		on:close={closeSaveReportModal}
+		on:close={() => (showSaveModal = false)}
 	/>
 </AppLayout>

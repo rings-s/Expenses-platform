@@ -44,6 +44,8 @@ from .visualizations import (
     save_chart_to_file
 )
 from accounts.permissions import EmailVerified
+import base64
+import tempfile
 
 
 # Category Views
@@ -511,44 +513,55 @@ class ChartExportView(APIView):
     """
     permission_classes = [IsAuthenticated, EmailVerified]
 
-
-
     def post(self, request):
         try:
             # Get chart data from request
             chart_data = request.data.get('chart_data')
+
             if not chart_data:
                 return Response(
                     {"detail": "Chart data is required"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            print(f"Received chart data of length: {len(chart_data)}")
+            # Remove data URL prefix if present
+            if chart_data.startswith('data:image/png;base64,'):
+                chart_data = chart_data.split(',')[1]
 
-            # Save chart to temporary file
-            chart_file = save_chart_to_file(chart_data)
-            print(f"Saved chart to temporary file: {chart_file}")
+            try:
+                # Decode base64 image
+                image_data = base64.b64decode(chart_data)
+            except Exception as decode_error:
+                return Response(
+                    {"detail": f"Invalid base64 data: {str(decode_error)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Use the existing save_chart_to_file utility function
+            filename = save_chart_to_file(base64.b64encode(image_data).decode('utf-8'))
 
             # Return file response
             response = FileResponse(
-                open(chart_file, 'rb'),
+                open(filename, 'rb'),
                 content_type='image/png',
                 as_attachment=True,
                 filename="expense_chart.png"
             )
 
             # Clean up the temporary file after response is sent
-            response._closable_objects.append(open(chart_file, 'rb'))
+            response._closable_objects.append(open(filename, 'rb'))
 
             return response
+
         except Exception as e:
             import traceback
-            print(f"Error generating chart: {str(e)}")
+            print(f"Chart export error: {str(e)}")
             print(traceback.format_exc())
             return Response(
                 {"detail": f"Error generating chart: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 class ExpenseHeatmapView(APIView):
     """
     Generate a calendar heatmap of expenses

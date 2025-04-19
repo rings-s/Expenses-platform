@@ -116,14 +116,12 @@
 			loading = true;
 			error = null;
 
-			// Make sure the chart data is a valid base64 image
-			if (!chart.startsWith('data:image/png;base64,')) {
-				error = 'Invalid chart data format';
-				loading = false;
-				return;
-			}
+			// Ensure chart is a valid base64 image
+			const chartExportData = chart.startsWith('data:image/png;base64,')
+				? chart
+				: `data:image/png;base64,${chart}`;
 
-			const blob = await reportStore.exportChart(chart);
+			const blob = await reportStore.exportChart(chartExportData);
 
 			// Create a download link
 			const url = window.URL.createObjectURL(blob);
