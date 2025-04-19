@@ -110,8 +110,16 @@ export default {
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.detail || 'Failed to export chart');
+				const errorText = await response.text();
+				let errorMessage = 'Failed to export chart';
+				try {
+					const errorData = JSON.parse(errorText);
+					errorMessage = errorData.detail || errorMessage;
+				} catch (e) {
+					// If not JSON, use text as is
+					errorMessage = errorText || errorMessage;
+				}
+				throw new Error(errorMessage);
 			}
 
 			return await response.blob();

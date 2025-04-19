@@ -537,8 +537,10 @@ class ChartExportView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Use the existing save_chart_to_file utility function
-            filename = save_chart_to_file(base64.b64encode(image_data).decode('utf-8'))
+            # Create a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                temp_file.write(image_data)
+                filename = temp_file.name
 
             # Return file response
             response = FileResponse(
@@ -548,8 +550,14 @@ class ChartExportView(APIView):
                 filename="expense_chart.png"
             )
 
-            # Clean up the temporary file after response is sent
-            response._closable_objects.append(open(filename, 'rb'))
+            # Clean up will happen through a context manager
+            def cleanup_temp_file(response):
+                if os.path.exists(filename):
+                    os.close(response.file.fileno())
+                    os.unlink(filename)
+                return response
+
+            response.close = lambda: cleanup_temp_file(response)
 
             return response
 
@@ -561,6 +569,7 @@ class ChartExportView(APIView):
                 {"detail": f"Error generating chart: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 class ExpenseHeatmapView(APIView):
     """

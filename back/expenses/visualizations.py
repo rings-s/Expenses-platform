@@ -423,6 +423,7 @@ def save_chart_to_file(chart_data, filename=None):
         # Create a temporary file
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
         filename = temp_file.name
+        temp_file.close()
 
     try:
         # Remove data URL prefix
