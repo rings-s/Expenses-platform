@@ -1,4 +1,3 @@
-<!-- frontend/src/lib/components/expenses/ExpenseForm.svelte -->
 <script>
 	import { createEventDispatcher } from 'svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';

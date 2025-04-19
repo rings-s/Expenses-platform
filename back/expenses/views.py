@@ -46,7 +46,8 @@ from .visualizations import (
 from accounts.permissions import EmailVerified
 import base64
 import tempfile
-
+import logging
+logger = logging.getLogger(__name__)
 
 # Category Views
 class CategoryListView(APIView):
@@ -244,7 +245,6 @@ class ReportListView(APIView):
     def post(self, request):
         """Create a new report"""
         # Debug the incoming data
-        import logging
         logger = logging.getLogger(__name__)
         logger.info(f"Report data received: {request.data}")
 
@@ -466,6 +466,33 @@ class BudgetComparisonView(APIView):
             'data': budget_data,
             'chart': chart
         })
+
+# Add these imports at the top of the file
+import logging
+logger = logging.getLogger(__name__)
+
+class BudgetListView(APIView):
+    """
+    List all budgets or create a new budget
+    """
+    permission_classes = [IsAuthenticated, EmailVerified]
+
+    def get(self, request):
+        budgets = Budget.objects.filter(user=request.user)
+        serializer = BudgetSerializer(budgets, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        logger.info(f"Budget creation request received: {request.data}")
+
+        serializer = BudgetSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            budget = serializer.save()
+            logger.info(f"Budget created successfully with ID: {budget.id}")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        logger.error(f"Budget validation errors: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ExpenseExportView(APIView):

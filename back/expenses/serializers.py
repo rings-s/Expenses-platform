@@ -87,6 +87,7 @@ class BudgetSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+
 class ReportSerializer(serializers.ModelSerializer):
     categories_data = CategorySerializer(source='categories', many=True, read_only=True)
 
@@ -133,6 +134,9 @@ class ReportSerializer(serializers.ModelSerializer):
         report.categories.set(categories)
 
         return report
+
+
+
 class ExpenseSummarySerializer(serializers.Serializer):
     """Serializer for expense summary data"""
     total_expenses = serializers.DecimalField(max_digits=12, decimal_places=2)
