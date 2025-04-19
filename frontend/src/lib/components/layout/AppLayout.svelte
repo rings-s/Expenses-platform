@@ -42,6 +42,8 @@
 
 	function toggleMobileMenu() {
 		isMobileMenuOpen = !isMobileMenuOpen;
+		// When mobile menu is toggled, ensure user menu is closed
+		isUserMenuOpen = false;
 	}
 
 	function toggleUserMenu() {
@@ -76,8 +78,8 @@
 	};
 </script>
 
-<div class="min-h-screen bg-gray-100">
-	<!-- Sidebar for desktop -->
+<div class="min-h-screen">
+	<!-- Sidebar for desktop (md and up) - Always visible on desktop -->
 	<div class="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
 		<div class="flex min-h-0 flex-1 flex-col bg-blue-700">
 			<div class="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
@@ -137,10 +139,10 @@
 					</div>
 				</button>
 
-				<!-- User dropdown menu -->
+				<!-- User dropdown menu on desktop -->
 				{#if isUserMenuOpen}
 					<div
-						class="ring-opacity-5 absolute bottom-12 left-20 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black focus:outline-none"
+						class="ring-opacity-5 absolute bottom-12 left-20 z-50 w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black focus:outline-none"
 					>
 						{#each userNavigation as item}
 							<a href={item.href} class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -159,12 +161,12 @@
 		</div>
 	</div>
 
-	<!-- Mobile header -->
+	<!-- Mobile header - Only visible on mobile (below md) -->
 	<div class="sticky top-0 z-10 flex h-16 flex-shrink-0 bg-white shadow md:hidden">
 		<button
 			type="button"
 			on:click={toggleMobileMenu}
-			class="border-r border-gray-200 px-4 text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:ring-inset md:hidden"
+			class="border-r border-gray-200 px-4 text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:ring-inset"
 		>
 			<span class="sr-only">Open sidebar</span>
 			<!-- Hamburger icon -->
@@ -190,13 +192,13 @@
 				<span class="text-xl font-semibold text-gray-800">{title}</span>
 			</div>
 			<div class="ml-4 flex items-center md:ml-6">
-				<!-- Profile dropdown -->
+				<!-- Profile dropdown on mobile only -->
 				<div class="relative ml-3">
 					<div>
 						<button
 							type="button"
 							on:click={toggleUserMenu}
-							class="flex max-w-xs items-center rounded-full bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none"
+							class="flex max-w-xs items-center rounded-full bg-white text-sm focus:outline-none"
 							id="user-menu-button"
 						>
 							<span class="sr-only">Open user menu</span>
@@ -218,9 +220,10 @@
 						</button>
 					</div>
 
+					<!-- User dropdown menu on mobile -->
 					{#if isUserMenuOpen}
 						<div
-							class="ring-opacity-5 absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black focus:outline-none"
+							class="ring-opacity-5 absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black focus:outline-none"
 							role="menu"
 							aria-orientation="vertical"
 							aria-labelledby="user-menu-button"
@@ -250,88 +253,97 @@
 		</div>
 	</div>
 
-	<!-- Mobile menu, show/hide based on menu state -->
+	<!-- Mobile menu - full screen overlay when mobile menu is open -->
 	{#if isMobileMenuOpen}
-		<div class="absolute inset-0 z-20 flex flex-col bg-white shadow-lg md:hidden">
-			<div class="flex items-center justify-between p-4">
-				<Logo size="md" />
-				<button
-					type="button"
-					on:click={toggleMobileMenu}
-					class="text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:ring-inset"
-				>
-					<span class="sr-only">Close sidebar</span>
-					<!-- X icon -->
-					<svg
-						class="h-6 w-6"
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						aria-hidden="true"
+		<div class="fixed inset-0 z-40 md:hidden">
+			<!-- Overlay background -->
+			<div class="bg-opacity-75 fixed inset-0 bg-gray-600" on:click={toggleMobileMenu}></div>
+
+			<!-- Mobile menu container -->
+			<div class="relative flex h-full w-full max-w-xs flex-1 flex-col bg-blue-700 pt-5 pb-4">
+				<!-- Close button -->
+				<div class="absolute top-0 right-0 -mr-12 pt-2">
+					<button
+						type="button"
+						on:click={toggleMobileMenu}
+						class="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:ring-2 focus:ring-white focus:outline-none focus:ring-inset"
 					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-				</button>
-			</div>
-
-			<div class="h-0 flex-1 overflow-y-auto">
-				<nav class="space-y-1 px-2">
-					{#each navigation as item}
-						<a
-							href={item.href}
-							on:click={toggleMobileMenu}
-							class="group flex items-center rounded-md px-2 py-2 text-base font-medium {isActivePath(
-								item.href
-							)
-								? 'bg-blue-100 text-blue-900'
-								: 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}"
+						<span class="sr-only">Close sidebar</span>
+						<svg
+							class="h-6 w-6 text-white"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							aria-hidden="true"
 						>
-							<span
-								class="mr-4 h-6 w-6 flex-shrink-0 {isActivePath(item.href)
-									? 'text-blue-500'
-									: 'text-gray-400 group-hover:text-gray-500'}"
-								aria-hidden="true"
-							>
-								{@html icons[item.icon]}
-							</span>
-							{item.name}
-						</a>
-					{/each}
-				</nav>
-			</div>
-
-			<div class="flex flex-shrink-0 border-t border-gray-200 p-4">
-				<div class="flex items-center">
-					<div>
-						{#if $userStore.profile?.profile_image}
-							<img
-								class="inline-block h-10 w-10 rounded-full"
-								src={$userStore.profile.profile_image}
-								alt="Profile"
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
 							/>
-						{:else}
-							<div
-								class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700"
-							>
-								{$userStore.profile?.first_name?.charAt(0) ||
-									$userStore.profile?.username?.charAt(0) ||
-									'U'}
-							</div>
-						{/if}
+						</svg>
+					</button>
+				</div>
+
+				<!-- Logo -->
+				<div class="flex flex-shrink-0 items-center px-4">
+					<div class="text-white">
+						<Logo size="md" />
 					</div>
-					<div class="ml-3">
-						<p class="text-base font-medium text-gray-700">
-							{$userStore.profile?.first_name || $userStore.profile?.username || 'User'}
-						</p>
-						<p class="text-sm font-medium text-gray-500">
-							{$userStore.profile?.email || 'user@example.com'}
-						</p>
+				</div>
+
+				<!-- Mobile menu content -->
+				<div class="mt-5 h-0 flex-1 overflow-y-auto">
+					<nav class="space-y-1 px-2">
+						{#each navigation as item}
+							<a
+								href={item.href}
+								on:click={toggleMobileMenu}
+								class="group flex items-center rounded-md px-2 py-2 text-base font-medium {isActivePath(
+									item.href
+								)
+									? 'bg-blue-800 text-white'
+									: 'text-blue-100 hover:bg-blue-600'}"
+							>
+								<span class="mr-4 h-6 w-6 flex-shrink-0" aria-hidden="true">
+									{@html icons[item.icon]}
+								</span>
+								{item.name}
+							</a>
+						{/each}
+					</nav>
+				</div>
+
+				<!-- Mobile User Profile -->
+				<div class="flex flex-shrink-0 border-t border-blue-800 p-4">
+					<div class="flex items-center">
+						<div>
+							{#if $userStore.profile?.profile_image}
+								<img
+									class="inline-block h-10 w-10 rounded-full"
+									src={$userStore.profile.profile_image}
+									alt="Profile"
+								/>
+							{:else}
+								<div
+									class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700"
+								>
+									{$userStore.profile?.first_name?.charAt(0) ||
+										$userStore.profile?.username?.charAt(0) ||
+										'U'}
+								</div>
+							{/if}
+						</div>
+						<div class="ml-3">
+							<p class="text-base font-medium text-white">
+								{$userStore.profile?.first_name || $userStore.profile?.username || 'User'}
+							</p>
+							<p class="text-sm font-medium text-blue-200">
+								{$userStore.profile?.email || 'user@example.com'}
+							</p>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -343,6 +355,7 @@
 		<main>
 			<div class="py-6">
 				<div class="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
+					<!-- Hide title on mobile since it's already in the header -->
 					<h1 class="hidden text-2xl font-semibold text-gray-900 md:block">{title}</h1>
 				</div>
 				<div class="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">

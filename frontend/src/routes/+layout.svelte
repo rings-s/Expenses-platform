@@ -32,10 +32,30 @@
 			goto('/login');
 		}
 	});
+
+	// Check if current page is an auth page using $derived
+	const isAuthPage = $derived(
+		$page.url.pathname.includes('/login') ||
+			$page.url.pathname.includes('/register') ||
+			$page.url.pathname.includes('/verify-email') ||
+			$page.url.pathname.includes('/forgot-password') ||
+			$page.url.pathname.includes('/reset-password')
+	);
+
+	// Check if current page is a dashboard/app page using $derived
+	const isAppPage = $derived(
+		$page.url.pathname.includes('/dashboard') ||
+			$page.url.pathname.includes('/expenses') ||
+			$page.url.pathname.includes('/categories') ||
+			$page.url.pathname.includes('/budgets') ||
+			$page.url.pathname.includes('/reports') ||
+			$page.url.pathname.includes('/profile') ||
+			$page.url.pathname.includes('/settings')
+	);
 </script>
 
-<!-- Header - Don't show on auth pages -->
-{#if !$page.url.pathname.includes('/login') && !$page.url.pathname.includes('/register') && !$page.url.pathname.includes('/verify-email') && !$page.url.pathname.includes('/forgot-password') && !$page.url.pathname.includes('/reset-password')}
+<!-- Show header only on non-auth pages AND non-app pages -->
+{#if !isAuthPage && !isAppPage}
 	<header class="bg-white shadow">
 		<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 			<div class="flex h-16 justify-between">
